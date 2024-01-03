@@ -1,0 +1,29 @@
+= BlazeVM - a "blazing-fast" Java Virtual Machine
+
+[abstract]
+--
+BlazeVM is intented to be a fun project to learn about the JVM internals. It is not intended to be used in production.
+BlazeVM does not attempt to be neither a full-featured JVM nor a high-performance one, the "blazing-fast" comment is just
+humor. It is just a toy JVM.
+--
+
+== Why reimplment a Java Virtual Machine?
+
+I have been working with Java for quite a long time in the past, and also in other JVM-based languages like Scala and Kotlin.
+Moreover, I'm quite interested to know more about how a virtual machine like the JVM (or the Python VM) works, so with a bit
+of time in my hands I decided to start this project.
+
+I might in the future try to create my own JVM-based language, but that is not the goal of this particular project.
+Nonetheless, if this idea ever comes to reality, I would know a lot more about the JVM intrinsics to create it. And
+it would be kinda cool to have a language that compiles to JVM bytecode but also run on my own JVM implementation.
+(Yeah i know, it's basically creating a new interpreted language but with more steps and constraints. But it's fun!)
+
+== How to run it?
+
+You don't for now. It still is quite the early days of this project, therefore there is not much to see yet.
+
+== License
+
+This project is licensed under the CeCILL 2.1 license (GPL-compatible license).
+
+See the link:./LICENSE[LICENSE] file for more details.
