@@ -1,0 +1,6 @@
+= blazevm-reader
+
+[abstract]
+--
+Basically, the entrypoint of the whole project. It is the library that will read the bytecode from class files and allow transformation to use it later on.
+--
