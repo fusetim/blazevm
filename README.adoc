@@ -1,13 +1,13 @@
-= BlazeVM - a "blazing-fast" Java Virtual Machine
+= BlazeVM - a "blazingly-fast" Java Virtual Machine
 
 [abstract]
 --
 BlazeVM is intented to be a fun project to learn about the JVM internals. It is not intended to be used in production.
-BlazeVM does not attempt to be neither a full-featured JVM nor a high-performance one, the "blazing-fast" comment is just
+BlazeVM does not attempt to be neither a full-featured JVM nor a high-performance one, the "blazingly-fast" comment is just
 humor. It is just a toy JVM.
 --
 
-== Why reimplment a Java Virtual Machine?
+== Why reimplement a Java Virtual Machine?
 
 I have been working with Java for quite a long time in the past, and also in other JVM-based languages like Scala and Kotlin.
 Moreover, I'm quite interested to know more about how a virtual machine like the JVM (or the Python VM) works, so with a bit
