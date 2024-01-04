@@ -1,64 +1,5 @@
 use flagset::{FlagSet, flags};
-
-pub type U1 = u8;
-pub type U2 = u16;
-pub type U4 = u32;
-
-/// Model of the Constant Pool
-///
-/// The constant pool is a tables representing the differents constants used later
-/// on in the class file. Each entry might represent the name of a class, a method
-/// or a field or litteral constants such as strings, integers, floats, etc.
-///
-/// Ref: https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.4
-pub type ConstantPool = Vec<ConstantPoolEntry>;
-
-/// Model of a Constant Pool Entry
-///
-/// Each entry might be a real entry or a tombstone. The tombstone is used to
-/// mark the end of a long entry (such as a long or a double) in the constant
-/// pool. Indeed those long entries take two slots in the constant pool, and
-/// therefore to keep the same indexing, we need to mark the second slot as
-/// a tombstone.
-pub enum ConstantPoolEntry {
-    /// A real entry in the constant pool
-    Entry(ConstantPoolInfo),
-    /// Special marker, to keep the indices of the constant pool entries
-    /// consistent with the classfile specification.
-    Tombstone,
-}
-
-/// Model of a Constant Pool Info
-///
-/// Each entry in the constant pool is a constant pool info. The constant pool
-/// info is defined in the classfile by a tag, which is a u1, and the content
-/// that is of variable size, depending on the tag.
-///
-/// We don't need to model the structure actually used in the classfile, therefore
-/// we can use an enum to represent the different types of constant pool info, and
-/// use serialization and deserialization magic to convert from the classfile
-/// representation to ours.
-///
-/// Ref: https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.4
-pub enum ConstantPoolInfo {
-    // ClassInfo(ClassInfo),
-    // FieldRefInfo(FieldRefInfo),
-    // MethodRefInfo(MethodRefInfo),
-    // InterfaceMethodRefInfo(InterfaceMethodRefInfo),
-    // StringInfo(StringInfo),
-    // IntegerInfo(IntegerInfo),
-    // FloatInfo(FloatInfo),
-    // LongInfo(LongInfo),
-    // DoubleInfo(DoubleInfo),
-    // NameAndTypeInfo(NameAndTypeInfo),
-    // Utf8Info(Utf8Info),
-    // MethodHandleInfo(MethodHandleInfo),
-    // MethodTypeInfo(MethodTypeInfo),
-    // DynamicInfo(DynamicInfo),
-    // InvokeDynamicInfo(InvokeDynamicInfo),
-    // ModuleInfo(ModuleInfo),
-    // PackageInfo(PackageInfo),
-}
+use super::{U1, U2, U4, ConstantPool};
 
 /// Model of a Class Info
 ///
@@ -76,66 +17,86 @@ pub struct ClassFile {
     /// Should be 1-incremented per major release of Java
     /// starting at Major 49 for Java 5.
     major_version: U2,
-    /// Constant pool count
-    /// The number of entries in the constant pool table plus one.
-    /// This is because the constant pool is indexed from 1 to n-1.
-    constant_pool_count: U2,
-    /// Constant pool
+    // Constant pool count
+    // The number of entries in the constant pool table plus one.
+    // This is because the constant pool is indexed from 1 to n-1.
+    // constant_pool_count: U2,
+    /// Constant pool, see [crate::base::constant_pool::ConstantPool].
     constant_pool: ConstantPool,
     /// Access flags
     /// Flags indicating access permissions to and properties of this class,
     /// interface or module.
     access_flags: AccessFlags,
-    /// Pointer to the [ClassInfo] of the current class/interface in the constant pool.
+    /// Pointer to the [crate::base::constant_pool::ClassInfo] of the current class/interface in the constant pool.
     this_class: U2,
-    /// Pointer to the [ClassInfo] of the super class/interface in the constant pool.
+    /// Pointer to the [crate::base::constant_pool::ClassInfo] of the super class/interface in the constant pool.
     ///
     /// For a class, this is the super class of the current class. 0 if the class is
     /// [java.lang.Object].
-    /// For an interface, points to the [ClassInfo] of [java.lang.Object].
+    /// For an interface, points to the [crate::base::constant_pool::ClassInfo] of [java.lang.Object].
     super_class: U2,
-    /// Interfaces count
-    /// The number of direct super interfaces of this class or interface type.
-    interfaces_count: U2,
+    // Interfaces count
+    // The number of direct super interfaces of this class or interface type.
+    // interfaces_count: U2,
     /// The direct super interfaces of this class or interface type.
     /// Each entry must be a valid index into the constant pool table.
     /// The order of the interfaces is significant, and should be preserved.
     interfaces: Vec<U2>,
-    /// Fields count
-    /// The number of fields of this class or interface type.
-    fields_count: U2,
+    // Fields count
+    // The number of fields of this class or interface type.
+    // fields_count: U2,
     /// The fields' index into the constant pool table.
     /// It only contains the fields defined by this class or interface, and not
     /// those inherited from super classes or interfaces.
     fields: Vec<FieldInfo>,
-    /// Methods count
-    /// The number of methods of this class or interface type.
-    methods_count: U2,
-    /// 
+    // Methods count
+    // The number of methods of this class or interface type.
+    //methods_count: U2,
+    /// The method table
     methods: Vec<MethodInfo>,
-    attributes_count: U2,
+    // Attributes count
+    // attributes_count: U2,
+    /// Attribute table
     attributes: Vec<AttributeInfo>,
 }
 
 pub struct FieldInfo {
-    access_flags: U2,
+    /// Access flags denoting the permissions and properties of this field.
+    access_flags: AccessFlags,
+    /// Unqualified name denoting the field.
+    /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     name_index: U2,
+    /// Unqualified name denoting the field descriptor.
+    /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     descriptor_index: U2,
-    attributes_count: U2,
+    // Attributes count
+    // attributes_count: U2,
+    /// Attribute table of the field
     attributes: Vec<AttributeInfo>,
 }
 
 pub struct MethodInfo {
-    access_flags: U2,
+    /// Access flags denoting the permissions and properties of this method.
+    access_flags: AccessFlags,
+    /// Unqualified name denoting the method.
+    /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     name_index: U2,
+    /// Unqualified name denoting the method descriptor.
+    /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     descriptor_index: U2,
-    attributes_count: U2,
+    // Attributes count
+    // attributes_count: U2,
+    /// Attribute table of the method
     attributes: Vec<AttributeInfo>,
 }
 
 pub struct AttributeInfo {
+    /// Unqualified name denoting the attribute.
+    /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     attribute_name_index: U2,
-    attribute_length: U4,
+    // Info length
+    // attribute_length: U4,
+    /// Variable-length info
     info: Vec<U1>,
 }
 
@@ -195,7 +156,7 @@ flags! {
         /// Only applicable to classes and interfaces.
         Enum = 0x4000,
         /// Is a module.
-        /// Only applicable to classes and interfaces.
+        /// Only applicable to modules (and it is the only access flag that should be triggered).
         Module = 0x8000,
     }
 }
