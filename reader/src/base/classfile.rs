@@ -25,12 +25,13 @@ pub struct ClassFile {
     // This is because the constant pool is indexed from 1 to n-1.
     constant_pool_count: U2,
     /// Constant pool, see [crate::base::constant_pool::ConstantPool].
-    #[br(args(constant_pool_count))]
+    #[br(args(constant_pool_count - 1))]
     constant_pool: ConstantPool,
     /// Access flags
     /// Flags indicating access permissions to and properties of this class,
     /// interface or module.
-    access_flags: AccessFlags,
+    #[br(map= |x: U2| FlagSet::<AccessFlags>::new_truncated(x))]
+    access_flags: FlagSet::<AccessFlags>,
     /// Pointer to the [crate::base::constant_pool::ClassInfo] of the current class/interface in the constant pool.
     this_class: U2,
     /// Pointer to the [crate::base::constant_pool::ClassInfo] of the super class/interface in the constant pool.
@@ -72,7 +73,8 @@ pub struct ClassFile {
 #[br(big)]
 pub struct FieldInfo {
     /// Access flags denoting the permissions and properties of this field.
-    access_flags: AccessFlags,
+    #[br(map= |x: U2| FlagSet::<AccessFlags>::new_truncated(x))]
+    access_flags: FlagSet::<AccessFlags>,
     /// Unqualified name denoting the field.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     name_index: U2,
@@ -90,7 +92,8 @@ pub struct FieldInfo {
 #[br(big)]
 pub struct MethodInfo {
     /// Access flags denoting the permissions and properties of this method.
-    access_flags: AccessFlags,
+    #[br(map= |x: U2| FlagSet::<AccessFlags>::new_truncated(x))]
+    access_flags: FlagSet::<AccessFlags>,
     /// Unqualified name denoting the method.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     name_index: U2,
@@ -121,8 +124,6 @@ flags! {
     /// Access flags
     /// Flags indicating access permissions to and properties of this class,
     /// interface, module, fields or methods.
-    #[derive(BinRead)]
-    #[br(big, repr=U2)]
     enum AccessFlags: U2 {
         /// Declared public, it may be accessed from outside its package.
         Public = 0x0001,
@@ -137,9 +138,16 @@ flags! {
         Static = 0x0008,
         /// Declared final, no subclasses allowed.
         Final = 0x0010,
+        /// Super (for Class) or Synchronized (for methods).
+        ///
+        /// Super is a special property, that treats superclass methods particularly
+        /// when invoked by the invokespecial instruction.
+        /// Only applicable to classes. From Java SE 8, every class
+        /// implicitly has this flag set.
+        ///
         /// Declared synchronized, invocation is wrapped by a monitor use.
         /// Only applicable to methods.
-        Synchronized = 0x0020,
+        SuperSynchronized = 0x0020,
         /// Volatile, cannot be cached.
         /// Only applicable to fields.
         Volatile = 0x0040,
@@ -177,5 +185,27 @@ flags! {
         /// Is a module.
         /// Only applicable to modules (and it is the only access flag that should be triggered).
         Module = 0x8000,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn read_minimal_class() {
+        let bytecode = include_bytes!("../../res/test/MinimalClass.class");
+        let mut bytes = Cursor::new(bytecode);
+        let classfile = ClassFile::read(&mut bytes).unwrap();
+        assert_eq!(classfile.magic, 0xCAFEBABE);
+        assert_eq!(classfile.minor_version, 0);
+        assert_eq!(classfile.major_version, 65);
+        assert_eq!(classfile.constant_pool_count, 18);
+        assert_eq!(classfile.constant_pool.0.len(), 17);
+        assert_eq!(classfile.access_flags, FlagSet::<AccessFlags>::new_truncated(0x0020));
+        assert_eq!(classfile.this_class, 7);
+        assert_eq!(classfile.super_class, 2);
+        // To be continued...
     }
 }
