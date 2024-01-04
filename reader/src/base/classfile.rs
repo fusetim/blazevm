@@ -1,10 +1,13 @@
 use flagset::{FlagSet, flags};
+use binrw::{BinRead, BinReaderExt, binrw};
 use super::{U1, U2, U4, ConstantPool};
 
 /// Model of a Class Info
 ///
 /// The classfile structure represents the entire class file read.
 /// Note: One class or module is always represented by one class file.
+#[derive(BinRead)]
+#[br(big)]
 pub struct ClassFile {
     /// Magic number identifying the class file format
     /// Value should be 0xCAFEBABE for a valid class file for
@@ -20,8 +23,9 @@ pub struct ClassFile {
     // Constant pool count
     // The number of entries in the constant pool table plus one.
     // This is because the constant pool is indexed from 1 to n-1.
-    // constant_pool_count: U2,
+    constant_pool_count: U2,
     /// Constant pool, see [crate::base::constant_pool::ConstantPool].
+    #[br(args(constant_pool_count))]
     constant_pool: ConstantPool,
     /// Access flags
     /// Flags indicating access permissions to and properties of this class,
@@ -37,29 +41,35 @@ pub struct ClassFile {
     super_class: U2,
     // Interfaces count
     // The number of direct super interfaces of this class or interface type.
-    // interfaces_count: U2,
+    interfaces_count: U2,
     /// The direct super interfaces of this class or interface type.
     /// Each entry must be a valid index into the constant pool table.
     /// The order of the interfaces is significant, and should be preserved.
+    #[br(count=interfaces_count)]
     interfaces: Vec<U2>,
     // Fields count
     // The number of fields of this class or interface type.
-    // fields_count: U2,
+    fields_count: U2,
     /// The fields' index into the constant pool table.
     /// It only contains the fields defined by this class or interface, and not
     /// those inherited from super classes or interfaces.
+    #[br(count=fields_count)]
     fields: Vec<FieldInfo>,
     // Methods count
     // The number of methods of this class or interface type.
-    //methods_count: U2,
+    methods_count: U2,
     /// The method table
+    #[br(count=methods_count)]
     methods: Vec<MethodInfo>,
     // Attributes count
-    // attributes_count: U2,
+    attributes_count: U2,
     /// Attribute table
+    #[br(count=attributes_count)]
     attributes: Vec<AttributeInfo>,
 }
 
+#[derive(BinRead)]
+#[br(big)]
 pub struct FieldInfo {
     /// Access flags denoting the permissions and properties of this field.
     access_flags: AccessFlags,
@@ -70,11 +80,14 @@ pub struct FieldInfo {
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     descriptor_index: U2,
     // Attributes count
-    // attributes_count: U2,
+    attributes_count: U2,
     /// Attribute table of the field
+    #[br(count=attributes_count)]
     attributes: Vec<AttributeInfo>,
 }
 
+#[derive(BinRead)]
+#[br(big)]
 pub struct MethodInfo {
     /// Access flags denoting the permissions and properties of this method.
     access_flags: AccessFlags,
@@ -85,18 +98,22 @@ pub struct MethodInfo {
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     descriptor_index: U2,
     // Attributes count
-    // attributes_count: U2,
+    attributes_count: U2,
     /// Attribute table of the method
+    #[br(count=attributes_count)]
     attributes: Vec<AttributeInfo>,
 }
 
+#[derive(BinRead)]
+#[br(big)]
 pub struct AttributeInfo {
     /// Unqualified name denoting the attribute.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     attribute_name_index: U2,
     // Info length
-    // attribute_length: U4,
+    attribute_length: U4,
     /// Variable-length info
+    #[br(count=attribute_length)]
     info: Vec<U1>,
 }
 
@@ -104,6 +121,8 @@ flags! {
     /// Access flags
     /// Flags indicating access permissions to and properties of this class,
     /// interface, module, fields or methods.
+    #[derive(BinRead)]
+    #[br(big, repr=U2)]
     enum AccessFlags: U2 {
         /// Declared public, it may be accessed from outside its package.
         Public = 0x0001,

@@ -1,3 +1,4 @@
+use binrw::{BinRead, BinReaderExt, BinResult};
 use super::{U1, U2, U4};
 
 /// Model of the Constant Pool
@@ -7,7 +8,9 @@ use super::{U1, U2, U4};
 /// or a field or litteral constants such as strings, integers, floats, etc.
 ///
 /// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.4>
-pub type ConstantPool = Vec<ConstantPoolEntry>;
+#[derive(BinRead)]
+#[br(big, import(count: U2))]
+pub struct ConstantPool (#[br(parse_with = parse_constant_pool, args(count))] pub Vec<ConstantPoolEntry>);
 
 /// Model of a Constant Pool Entry
 ///
@@ -62,21 +65,28 @@ pub enum ConstantPoolInfo {
 ///
 /// It gives the index in the [ConstantPool] of a [Utf8Info] entry,
 /// describing a valid binary name for the current class/interface/module.
+#[derive(BinRead)]
+#[br(big)]
 pub struct ClassInfo {
     name_index: U2,
 }
 
 /// Utf8Info is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct Utf8Info {
     // tag: U1,
     // length is the byte-length of the bytes fields, the resulting string might
     // be shorter.
-    // length: U2,
+    length: U2,
     /// A CESU-8 encoded string
+    #[br(count=length)]
     bytes: Vec<U1>,
 }
 
 /// FieldRefInfo is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct FieldRefInfo {
     // tag: U1,
     /// [ClassInfo] reference in the [ConstantPool].
@@ -90,6 +100,8 @@ pub struct FieldRefInfo {
 }
 
 /// MethodRefInfo is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct MethodRefInfo {
     // tag: U1,
     /// [ClassInfo] reference in the [ConstantPool].
@@ -103,6 +115,8 @@ pub struct MethodRefInfo {
 }
 
 /// InterfaceMethodRefInfo is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct InterfaceMethodRefInfo {
     // tag: U1,
     /// [ClassInfo] reference in the [ConstantPool].
@@ -116,6 +130,8 @@ pub struct InterfaceMethodRefInfo {
 }
 
 /// StringInfo is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct StringInfo {
     // tag: U1,
     /// A reference to a [Utf8Info] part of the [ConstantPool].
@@ -124,6 +140,8 @@ pub struct StringInfo {
 }
 
 /// IntegerInfo is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct IntegerInfo {
     // tag: U1,
     /// Representation of the constant in big-endian order.
@@ -131,6 +149,8 @@ pub struct IntegerInfo {
 }
 
 /// NameAndTypeInfo is a [ConstantPool] entry.
+#[derive(BinRead)]
+#[br(big)]
 pub struct NameAndTypeInfo {
     // tag: U1,
     /// Reference to a [Utf8Info] in the [ConstantPool].
@@ -140,4 +160,57 @@ pub struct NameAndTypeInfo {
     /// Reference to a [Utf8Info] in the [ConstantPool].
     /// The descriptor must be a valid field or method descriptor.
     descriptor_index: U2,
+}
+
+#[binrw::parser(reader, endian)]
+fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
+    let count = count as usize;
+    let mut entries = Vec::with_capacity(count);
+    let mut i = 0;
+    while i < count {
+        let tag = U1::read_be(reader)?;
+        let (entry, tombstone) = match tag {
+            1 => (ConstantPoolEntry::Entry(ConstantPoolInfo::Utf8Info(Utf8Info::read(reader)?)), false),
+            3 => (ConstantPoolEntry::Entry(ConstantPoolInfo::IntegerInfo(IntegerInfo::read(reader)?)), false),
+            7 => (ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(ClassInfo::read(reader)?)), false),
+            8 => (ConstantPoolEntry::Entry(ConstantPoolInfo::StringInfo(StringInfo::read(reader)?)), false),
+            9 => (ConstantPoolEntry::Entry(ConstantPoolInfo::FieldRefInfo(FieldRefInfo::read(reader)?)), false),
+            10 => (ConstantPoolEntry::Entry(ConstantPoolInfo::MethodRefInfo(MethodRefInfo::read(reader)?)), false),
+            11 => (ConstantPoolEntry::Entry(ConstantPoolInfo::InterfaceMethodRefInfo(InterfaceMethodRefInfo::read(reader)?)), false),
+            12 => (ConstantPoolEntry::Entry(ConstantPoolInfo::NameAndTypeInfo(NameAndTypeInfo::read(reader)?)), false),
+            x => unimplemented!("Constant pool tag {} not implemented", x),
+        };
+        entries.push(entry);
+        i += 1;
+        if tombstone {
+            entries.push(ConstantPoolEntry::Tombstone);
+            i += 1;
+        }
+    }
+    Ok(entries)
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn read_utf8_info() {
+        let data = [0x00, 0x0B, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98];
+        let mut reader = Cursor::new(&data);
+        let info = Utf8Info::read(&mut reader).unwrap();
+        assert_eq!(info.length, 11);
+        assert_eq!(info.bytes, vec![0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98]);
+    }
+
+    #[test]
+    fn load_utf8i_in_constant_pool() {
+        let data = [0x01, 0x00, 0x0B, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98];
+        let mut reader = Cursor::new(&data);
+        let pool = ConstantPool::read_args(&mut reader, (1,)).unwrap();
+        assert!(pool.0.len() == 1);
+        assert!(matches!(pool.0[0], ConstantPoolEntry::Entry(ConstantPoolInfo::Utf8Info(_))));
+    }
 }
