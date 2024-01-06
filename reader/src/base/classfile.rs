@@ -30,8 +30,8 @@ pub struct ClassFile {
     /// Access flags
     /// Flags indicating access permissions to and properties of this class,
     /// interface or module.
-    #[br(map= |x: U2| FlagSet::<AccessFlags>::new_truncated(x))]
-    access_flags: FlagSet::<AccessFlags>,
+    #[br(map= |x: U2| FlagSet::<ClassAccessFlags>::new_truncated(x))]
+    access_flags: FlagSet::<ClassAccessFlags>,
     /// Pointer to the [crate::base::constant_pool::ClassInfo] of the current class/interface in the constant pool.
     this_class: U2,
     /// Pointer to the [crate::base::constant_pool::ClassInfo] of the super class/interface in the constant pool.
@@ -73,8 +73,8 @@ pub struct ClassFile {
 #[br(big)]
 pub struct FieldInfo {
     /// Access flags denoting the permissions and properties of this field.
-    #[br(map= |x: U2| FlagSet::<AccessFlags>::new_truncated(x))]
-    access_flags: FlagSet::<AccessFlags>,
+    #[br(map= |x: U2| FlagSet::<FieldAccessFlags>::new_truncated(x))]
+    access_flags: FlagSet::<FieldAccessFlags>,
     /// Unqualified name denoting the field.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     name_index: U2,
@@ -92,8 +92,8 @@ pub struct FieldInfo {
 #[br(big)]
 pub struct MethodInfo {
     /// Access flags denoting the permissions and properties of this method.
-    #[br(map= |x: U2| FlagSet::<AccessFlags>::new_truncated(x))]
-    access_flags: FlagSet::<AccessFlags>,
+    #[br(map= |x: U2| FlagSet::<MethodAccessFlags>::new_truncated(x))]
+    access_flags: FlagSet::<MethodAccessFlags>,
     /// Unqualified name denoting the method.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     name_index: U2,
@@ -121,70 +121,83 @@ pub struct AttributeInfo {
 }
 
 flags! {
-    /// Access flags
-    /// Flags indicating access permissions to and properties of this class,
-    /// interface, module, fields or methods.
-    enum AccessFlags: U2 {
-        /// Declared public, it may be accessed from outside its package.
+    /// Access flags for classes, interfaces and modules.
+    /// See [JVMS 4.1](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.1).
+    enum ClassAccessFlags: U2 {
+        /// Declared public; may be accessed from outside its package.
         Public = 0x0001,
-        /// Declared private, accessible only within the defining class.
-        /// Only applicable to methods and fields.
+        /// Declared final; no subclasses allowed.
+        Final = 0x0010,
+        /// Treat superclass methods specially when invoked by the invokespecial
+        /// instruction.
+        Super = 0x0020,
+        /// Is an interface, not a class.
+        Interface = 0x0200,
+        /// Declared abstract; must not be instantiated.
+        Abstract = 0x0400,
+        /// Declared synthetic; not present in the source code.
+        Synthetic = 0x1000,
+        /// Declared as an annotation interface.
+        Annotation = 0x2000,
+        /// Declared as an enum class.
+        Enum = 0x4000,
+        /// Module, not a class or interface.
+        Module = 0x8000,
+    }
+
+    /// Access flags for fields.
+    /// See [JVMS 4.5](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.5).
+    enum FieldAccessFlags: U2 {
+        /// Declared public; may be accessed from outside its package.
+        Public = 0x0001,
+        /// Declared private; usable only within the defining class and other
+        /// classes belonging to the same nest as the defining class.
         Private = 0x0002,
-        /// Declared protected, may be accessed within subclasses.
-        /// Only applicable to methods and fields.
+        /// Declared protected; may be accessed within subclasses.
         Protected = 0x0004,
         /// Declared static.
-        /// Only applicable to methods and fields.
         Static = 0x0008,
-        /// Declared final, no subclasses allowed.
+        /// Declared final; never directly assigned to after object construction.
         Final = 0x0010,
-        /// Super (for Class) or Synchronized (for methods).
-        ///
-        /// Super is a special property, that treats superclass methods particularly
-        /// when invoked by the invokespecial instruction.
-        /// Only applicable to classes. From Java SE 8, every class
-        /// implicitly has this flag set.
-        ///
-        /// Declared synchronized, invocation is wrapped by a monitor use.
-        /// Only applicable to methods.
-        SuperSynchronized = 0x0020,
-        /// Volatile, cannot be cached.
-        /// Only applicable to fields.
+        /// Declared volatile; cannot be cached.
         Volatile = 0x0040,
+        /// Declared transient; not written or read by a persistent object manager.
+        Transient = 0x0080,
+        /// Declared synthetic; not present in the source code.
+        Synthetic = 0x1000,
+        /// Declared as an element of an enum.
+        Enum = 0x4000,
+    }
+
+    /// Access flags for methods.
+    /// See [JVMS 4.6](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.6).
+    enum MethodAccessFlags: U2 {
+        /// Declared public; may be accessed from outside its package.
+        Public = 0x0001,
+        /// Declared private; accessible only within the defining class
+        /// and other classes belonging to the same nest as the defining class.
+        Private = 0x0002,
+        /// Declared protected; may be accessed within subclasses.
+        Protected = 0x0004,
+        /// Declared static.
+        Static = 0x0008,
+        /// Declared final; must not be overridden.
+        Final = 0x0010,
+        /// Declared synchronized; invocation is wrapped by a monitor use.
+        Synchronized = 0x0020,
         /// A bridge method, generated by the compiler.
-        /// Only applicable to methods.
         Bridge = 0x0040,
         /// Declared with variable number of arguments.
-        /// Only applicable to methods.
         Varargs = 0x0080,
-        /// Declared native, implemented in a language other than Java.
-        /// Only applicable to methods.
+        /// Declared native; implemented in a language other than Java.
         Native = 0x0100,
-        /// Special property, that treats superclass methods particularly
-        /// when invoked by the invokespecial instruction.
-        /// Only applicable to methods.
-        Super = 0x0020,
-        /// Is an interface.
-        Interface = 0x0200,
-        /// Declared abstract, it should not be instantiated.
+        /// Declared abstract; no implementation is provided.
         Abstract = 0x0400,
-        /// Declared strictfp, floating-point mode is FP-strict.
-        /// Only applicable to classfiles generated for Java SE between 1.2 and 16.
-        /// Only applicable to methods and fields.
-        /// We probably won't support this.
+        /// Declared strictfp; floating-point mode is FP-strict.
+        /// Deprecated, since Java SE 17.
         Strict = 0x0800,
-        /// Declared synthetic, not present in the source code.
-        /// Only applicable to methods and fields.
+        /// Declared synthetic; not present in the source code.
         Synthetic = 0x1000,
-        /// Declared as an annotation type.
-        /// Only applicable to classes and interfaces.
-        Annotation = 0x2000,
-        /// Declared as an enum type.
-        /// Only applicable to classes and interfaces.
-        Enum = 0x4000,
-        /// Is a module.
-        /// Only applicable to modules (and it is the only access flag that should be triggered).
-        Module = 0x8000,
     }
 }
 
@@ -203,9 +216,44 @@ mod test {
         assert_eq!(classfile.major_version, 65);
         assert_eq!(classfile.constant_pool_count, 18);
         assert_eq!(classfile.constant_pool.0.len(), 17);
-        assert_eq!(classfile.access_flags, FlagSet::<AccessFlags>::new_truncated(0x0020));
+        assert_eq!(classfile.access_flags, FlagSet::<ClassAccessFlags>::new_truncated(0x0020));
         assert_eq!(classfile.this_class, 7);
         assert_eq!(classfile.super_class, 2);
-        // To be continued...
+        assert_eq!(classfile.interfaces_count, 0);
+        assert_eq!(classfile.interfaces.len(), 0);
+        assert_eq!(classfile.fields_count, 1);
+        assert_eq!(classfile.fields.len(), 1);
+        let field = &classfile.fields[0];
+        assert_eq!(field.access_flags, FlagSet::<FieldAccessFlags>::new_truncated(0x0018));
+        assert_eq!(field.name_index, 9);
+        assert_eq!(field.descriptor_index, 10);
+        assert_eq!(classfile.methods_count, 2);
+        assert_eq!(classfile.methods.len(), 2);
+        let init_method = &classfile.methods[0];
+        assert_eq!(init_method.access_flags, FlagSet::<MethodAccessFlags>::new_truncated(0));
+        assert_eq!(init_method.name_index, 5);
+        assert_eq!(init_method.descriptor_index, 6);
+        assert_eq!(init_method.attributes_count, 1);
+        assert_eq!(init_method.attributes.len(), 1);
+        let init_code_attribute = &init_method.attributes[0];
+        assert_eq!(init_code_attribute.attribute_name_index, 13);
+        assert_eq!(init_code_attribute.attribute_length, 29);
+        assert_eq!(init_code_attribute.info.len(), 29);
+        let main_method = &classfile.methods[1];
+        assert_eq!(main_method.access_flags, FlagSet::<MethodAccessFlags>::new_truncated(0x0009));
+        assert_eq!(main_method.name_index, 15);
+        assert_eq!(main_method.descriptor_index, 6);
+        assert_eq!(main_method.attributes_count, 1);
+        assert_eq!(main_method.attributes.len(), 1);
+        let main_code_attribute = &main_method.attributes[0];
+        assert_eq!(main_code_attribute.attribute_name_index, 13);
+        assert_eq!(main_code_attribute.attribute_length, 39);
+        assert_eq!(main_code_attribute.info.len(), 39);
+        assert_eq!(classfile.attributes_count, 1);
+        assert_eq!(classfile.attributes.len(), 1);
+        let source_file_attribute = &classfile.attributes[0];
+        assert_eq!(source_file_attribute.attribute_name_index, 16);
+        assert_eq!(source_file_attribute.attribute_length, 2);
+        assert_eq!(source_file_attribute.info.len(), 2);
     }
 }
