@@ -1,4 +1,7 @@
+use std::borrow::Cow;
+
 use binrw::{BinRead, BinReaderExt, BinResult};
+use cesu8::from_java_cesu8;
 use super::{U1, U2, U4};
 
 /// Model of the Constant Pool
@@ -84,6 +87,15 @@ pub struct Utf8Info {
     /// A CESU-8 encoded string
     #[br(count=length)]
     bytes: Vec<U1>,
+}
+
+impl Utf8Info {
+    /// Convert the internal Java CESU-8 encoded string to a Rust string.
+    ///
+    /// If the conversion fails, None is returned.
+    pub fn to_string<'a>(&'a self) -> Option<Cow<'a, str>> {
+        from_java_cesu8(self.bytes.as_slice()).ok()
+    }
 }
 
 /// FieldRefInfo is a [ConstantPool] entry.

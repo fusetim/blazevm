@@ -1,6 +1,6 @@
 use flagset::{FlagSet, flags};
 use binrw::{BinRead, BinReaderExt, binrw};
-use super::{U1, U2, U4, ConstantPool};
+use super::{U1, U2, U4, ConstantPool, AttributeInfo};
 
 /// Model of a Class Info
 ///
@@ -105,19 +105,6 @@ pub struct MethodInfo {
     /// Attribute table of the method
     #[br(count=attributes_count)]
     attributes: Vec<AttributeInfo>,
-}
-
-#[derive(BinRead)]
-#[br(big)]
-pub struct AttributeInfo {
-    /// Unqualified name denoting the attribute.
-    /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
-    attribute_name_index: U2,
-    // Info length
-    attribute_length: U4,
-    /// Variable-length info
-    #[br(count=attribute_length)]
-    info: Vec<U1>,
 }
 
 flags! {
