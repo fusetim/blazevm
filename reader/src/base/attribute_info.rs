@@ -1,5 +1,5 @@
-use binrw::{BinRead, BinReaderExt, binrw};
-use super::{U1, U2, U4, ConstantPool};
+use super::{ConstantPool, U1, U2, U4, StackMapFrame};
+use binrw::{binrw, BinRead, BinReaderExt};
 
 #[derive(BinRead)]
 #[br(big)]
@@ -13,7 +13,6 @@ pub struct AttributeInfo {
     #[br(count=attribute_length)]
     info: Vec<U1>,
 }
-
 
 /// Attribute ConstantValue, a member of [AttributeInfo].
 ///
@@ -85,72 +84,4 @@ pub struct StackMapTableAttribute {
     entries: Vec<StackMapFrame>,
 }
 
-/// Entry of the stack map table of a [StackMapTableAttribute].
-///
-/// Represents the state of the operand stack and local variables at a particular
-/// point in the code array.
-pub enum StackMapFrame {
-    SameFrame {
-        frame_type: U1,
-    },
-    SameLocals1StackItemFrame {
-        frame_type: U1,
-        stack: VerificationTypeInfo,
-    },
-    SameLocals1StackItemFrameExtended {
-        frame_type: U1,
-        offset_delta: U2,
-        stack: VerificationTypeInfo,
-    },
-    ChopFrame {
-        frame_type: U1,
-        offset_delta: U2,
-    },
-    SameFrameExtended {
-        frame_type: U1,
-        offset_delta: U2,
-    },
-    AppendFrame {
-        frame_type: U1,
-        offset_delta: U2,
-        locals: Vec<VerificationTypeInfo>,
-    },
-    FullFrame {
-        frame_type: U1,
-        offset_delta: U2,
-        number_of_locals: U2,
-        locals: Vec<VerificationTypeInfo>,
-        number_of_stack_items: U2,
-        stack: Vec<VerificationTypeInfo>,
-    },
-}
 
-/// Verification type info, a member of [StackMapFrame].
-///
-/// Represents the type of a local variable or an operand stack entry.
-#[derive(BinRead)]
-#[br(big)]
-pub enum VerificationTypeInfo {
-    #[br(magic = 0u8)]
-    TopVariableInfo,
-    #[br(magic = 1u8)]
-    IntegerVariableInfo,
-    #[br(magic = 2u8)]
-    FloatVariableInfo,
-    #[br(magic = 3u8)]
-    DoubleVariableInfo,
-    #[br(magic = 4u8)]
-    LongVariableInfo,
-    #[br(magic = 5u8)]
-    NullVariableInfo,
-    #[br(magic = 6u8)]
-    UninitializedThisVariableInfo,
-    #[br(magic = 7u8)]
-    ObjectVariableInfo {
-        cpool_index: U2,
-    },
-    #[br(magic = 8u8)]
-    UninitializedVariableInfo {
-        offset: U2,
-    },
-}
