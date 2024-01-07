@@ -1,5 +1,5 @@
-use super::{ConstantPool, U1, U2, U4, StackMapFrame};
-use binrw::{binrw, BinRead, BinReaderExt};
+use super::{ConstantPool, U1, U2, U4, StackMapFrame, stack_frame::parse_stack_map_frame};
+use binrw::{binrw, BinRead, BinReaderExt, BinResult};
 
 #[derive(BinRead)]
 #[br(big)]
@@ -75,13 +75,24 @@ pub struct ExceptionTableEntry {
 /// Atribute StackMapTable, a member of [AttributeInfo].
 ///
 /// Represents the stack map table of a method.
-// #[derive(BinRead)]
-// #[br(big)]
+#[derive(BinRead)]
+#[br(big)]
 pub struct StackMapTableAttribute {
     /// The number of entries in the stack map table.
     number_of_entries: U2,
     /// The stack map table.
+    #[br(parse_with=parse_stack_map_entries, args(number_of_entries as usize))]
     entries: Vec<StackMapFrame>,
+}
+
+#[binrw::parser(reader, endian)]
+fn parse_stack_map_entries(count: usize) -> BinResult<Vec<StackMapFrame>> {
+    let mut entries = Vec::with_capacity(count);
+    for _ in 0..count {
+        let entry: StackMapFrame = parse_stack_map_frame(reader, endian, ())?;
+        entries.push(entry);
+    }
+    Ok(entries)
 }
 
 

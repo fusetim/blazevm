@@ -1,4 +1,4 @@
-use binrw::{binrw, BinRead, BinReaderExt};
+use binrw::{binrw, BinRead, BinReaderExt, BinResult, args, Error as BinError};
 use super::{U1, U2, U4};
 
 /// Entry of the stack map table of a [StackMapTableAttribute].
@@ -35,6 +35,8 @@ pub struct SameLocals1StackItemFrame{
 
 /// This stack frame indicates that the frame has exactly the same locals as the
 /// previous stack frame and that the number of stack items is 1.
+#[derive(BinRead)]
+#[br(big)]
 pub struct SameLocals1StackItemFrameExtended{
     // Frame type is 247.
     /// The value of the offset_delta item.
@@ -46,6 +48,8 @@ pub struct SameLocals1StackItemFrameExtended{
 /// This stack frame indicates that the frame has exactly the same locals as the
 /// previous stack frame but the last k locals variables are absent.
 /// The operand stack is empty.
+#[derive(BinRead)]
+#[br(big)]
 pub struct ChopFrame{
     /// The number k of absent locals.
     /// The value of k is given by the formula 251-frame_type, where frame_type is in range [248,250].
@@ -56,6 +60,8 @@ pub struct ChopFrame{
 
 /// This stack frame indicates that the frame has exactly the same locals as the
 /// previous stack frame and that the number of stack items is zero.
+#[derive(BinRead)]
+#[br(big)]
 pub struct SameFrameExtended{
     // Frame type is 251.
 
@@ -79,6 +85,8 @@ pub struct AppendFrame{
 }
 
 /// This stack frame is fully specified.
+#[derive(BinRead)]
+#[br(big)]
 pub struct FullFrame{
     // Frame type is 255.
 
@@ -87,10 +95,12 @@ pub struct FullFrame{
     /// The number of local variables in the local variable array.
     pub number_of_locals: U2,
     /// The verification type info of the local variables.
+    #[br(count=number_of_locals)]
     pub locals: Vec<VerificationTypeInfo>,
     /// The number of stack items in the operand stack.
     pub number_of_stack_items: U2,
     /// The verification type info of the stack items.
+    #[br(count=number_of_stack_items)]
     pub stack: Vec<VerificationTypeInfo>,
 }
 
@@ -118,4 +128,44 @@ pub enum VerificationTypeInfo {
     ObjectVariableInfo { cpool_index: U2 },
     #[br(magic = 8u8)]
     UninitializedVariableInfo { offset: U2 },
+}
+
+#[binrw::parser(reader)]
+pub fn parse_stack_map_frame() -> BinResult<StackMapFrame> {
+    let frame_type: U1 = reader.read_be()?;
+    match frame_type {
+        0..=63 => {
+            let offset_delta = frame_type;
+            Ok(StackMapFrame::SameFrame(SameFrame { offset_delta }))
+        },
+        64..=127 => {
+            let offset_delta = frame_type - 64;
+            let stack = VerificationTypeInfo::read(reader)?;
+            Ok(StackMapFrame::SameLocals1StackItemFrame(SameLocals1StackItemFrame { offset_delta, stack }))
+        },
+        247 => {
+            let frame = SameLocals1StackItemFrameExtended::read(reader)?;
+            Ok(StackMapFrame::SameLocals1StackItemFrameExtended(frame))
+        },
+        248..=250 => {
+            let k = 251 - frame_type;
+            let offset_delta: U2 = reader.read_be()?;
+            Ok(StackMapFrame::ChopFrame(ChopFrame { k, offset_delta }))
+        },
+        251 => {
+            let offset_delta : U2 = reader.read_be()?;
+            Ok(StackMapFrame::SameFrameExtended(SameFrameExtended { offset_delta }))
+        },
+        252..=254 => {
+            let k = frame_type - 251;
+            let offset_delta : U2 = reader.read_be()?;
+            let locals =  Vec::<VerificationTypeInfo>::read_be_args(reader, args!(count: k as usize))?;
+            Ok(StackMapFrame::AppendFrame(AppendFrame { k, offset_delta, locals }))
+        },
+        255 => {
+            let frame = FullFrame::read(reader)?;
+            Ok(StackMapFrame::FullFrame(frame))
+        },
+        x => Err(BinError::BadMagic { pos: reader.stream_position().unwrap_or(0), found: Box::new(x)})
+    }
 }
