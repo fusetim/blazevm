@@ -95,4 +95,79 @@ fn parse_stack_map_entries(count: usize) -> BinResult<Vec<StackMapFrame>> {
     Ok(entries)
 }
 
+/// Attribute BootstrapMethods, a member of [AttributeInfo].
+///
+/// This attribute records bootstrap methods used by dynamic instructions.
+/// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.23>
+#[derive(BinRead)]
+#[br(big)]
+pub struct BootstrapMethodsAttribute {
+    /// The number of bootstrap methods in the bootstrap_methods array.
+    pub num_bootstrap_methods: U2,
 
+    /// The bootstrap methods.
+    #[br(count=num_bootstrap_methods)]
+    pub bootstrap_methods: Vec<BootstrapMethod>,
+}
+
+/// A bootstrap method, a member of [BootstrapMethodsAttribute].
+///
+/// This structure represents a bootstrap method, which is a method that is invoked
+/// during the invocation of a dynamic instruction.
+/// It invokes a method to compute the value of a number of static arguments.
+///
+/// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.23>
+#[derive(BinRead)]
+#[br(big)]
+pub struct BootstrapMethod {
+    /// A reference to a [MethodHandleInfo] in the constant pool.
+    pub bootstrap_method_ref: U2,
+    /// The number of items in the bootstrap_arguments array.
+    pub num_bootstrap_arguments: U2,
+    /// The bootstrap **static** arguments, referenced by their indices in the constant pool.
+    #[br(count=num_bootstrap_arguments)]
+    pub bootstrap_arguments: Vec<U2>,
+}
+
+/// Attribute NestHost, a member of [AttributeInfo].
+///
+/// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.28>
+#[derive(BinRead)]
+#[br(big)]
+pub struct NestHostAttribute {
+    /// A reference to a [ClassInfo] in the constant pool.
+    ///
+    /// The class/interface is the nest host of the current class/interface.
+    pub host_class_index: U2,
+}
+
+/// Attribute NestMembers, a member of [AttributeInfo].
+///
+/// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.29>
+#[derive(BinRead)]
+#[br(big)]
+pub struct NestMembersAttribute {
+    /// The number of entries in the classes array.
+    pub num_classes: U2,
+    /// The classes/interfaces that are members of the nest to which the current class/interface belongs.
+    /// Each entry is a reference to a [ClassInfo] in the constant pool.
+    #[br(count=num_classes)]
+    pub classes: Vec<U2>,
+}
+
+/// Attribute PermittedSubclasses, a member of [AttributeInfo].
+///
+/// This attribute records the classes that are permitted to extend the current class.
+///
+/// Note: For final classes (cf [ClassAccessFlags::FINAL](super::classfile::ClassAccessFlags)), this 
+/// attribute MUST exist and MUST be empty.
+///
+/// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.31>
+#[derive(BinRead)]
+#[br(big)]
+pub struct PermittedSubclassesAttribute {
+
+    pub num_classes: U2,
+    #[br(count=num_classes)]
+    pub classes: Vec<U2>,
+}

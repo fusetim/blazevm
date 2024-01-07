@@ -110,7 +110,7 @@ pub struct MethodInfo {
 flags! {
     /// Access flags for classes, interfaces and modules.
     /// See [JVMS 4.1](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.1).
-    enum ClassAccessFlags: U2 {
+    pub enum ClassAccessFlags: U2 {
         /// Declared public; may be accessed from outside its package.
         Public = 0x0001,
         /// Declared final; no subclasses allowed.
@@ -134,7 +134,7 @@ flags! {
 
     /// Access flags for fields.
     /// See [JVMS 4.5](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.5).
-    enum FieldAccessFlags: U2 {
+    pub enum FieldAccessFlags: U2 {
         /// Declared public; may be accessed from outside its package.
         Public = 0x0001,
         /// Declared private; usable only within the defining class and other
@@ -158,7 +158,7 @@ flags! {
 
     /// Access flags for methods.
     /// See [JVMS 4.6](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.6).
-    enum MethodAccessFlags: U2 {
+    pub enum MethodAccessFlags: U2 {
         /// Declared public; may be accessed from outside its package.
         Public = 0x0001,
         /// Declared private; accessible only within the defining class
