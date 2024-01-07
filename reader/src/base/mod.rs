@@ -1,7 +1,7 @@
-mod classfile;
-mod constant_pool;
-mod attribute_info;
-mod stack_frame;
+pub mod classfile;
+pub mod constant_pool;
+pub mod attribute_info;
+pub mod stack_frame;
 
 pub use constant_pool::{ConstantPool};
 pub use attribute_info::{AttributeInfo};
