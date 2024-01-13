@@ -1,3 +1,4 @@
+use dumpster::Collectable;
 use flagset::{FlagSet, flags};
 use binrw::{BinRead, BinReaderExt, binrw};
 use super::{U1, U2, U4, ConstantPool, AttributeInfo};
@@ -69,6 +70,13 @@ pub struct ClassFile {
     attributes: Vec<AttributeInfo>,
 }
 
+impl ClassFile {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, binrw::Error> {
+        let mut reader = std::io::Cursor::new(bytes);
+        Self::read(&mut reader)
+    }
+}
+
 #[derive(BinRead)]
 #[br(big)]
 pub struct FieldInfo {
@@ -110,6 +118,7 @@ pub struct MethodInfo {
 flags! {
     /// Access flags for classes, interfaces and modules.
     /// See [JVMS 4.1](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.1).
+    #[derive(Collectable)]
     pub enum ClassAccessFlags: U2 {
         /// Declared public; may be accessed from outside its package.
         Public = 0x0001,
@@ -134,6 +143,7 @@ flags! {
 
     /// Access flags for fields.
     /// See [JVMS 4.5](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.5).
+    #[derive(Collectable)]
     pub enum FieldAccessFlags: U2 {
         /// Declared public; may be accessed from outside its package.
         Public = 0x0001,
@@ -158,6 +168,7 @@ flags! {
 
     /// Access flags for methods.
     /// See [JVMS 4.6](https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.6).
+    #[derive(Collectable)]
     pub enum MethodAccessFlags: U2 {
         /// Declared public; may be accessed from outside its package.
         Public = 0x0001,

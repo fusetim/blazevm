@@ -10,4 +10,5 @@ license = "CECILL-2.1"
 [dependencies]
 binrw = "0.13.3"
 cesu8 = "1.1.0"
+dumpster = "0.1.2"
 flagset = "0.4.4"

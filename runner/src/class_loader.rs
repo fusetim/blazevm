@@ -1,6 +1,6 @@
 use std::fmt::Debug;
-
-use crate::class::Class;
+use crate::class::{Class, self};
+use reader::base::{ClassFile, ParsingError};
 
 /// Runtime representation of a class loader.
 ///
@@ -22,6 +22,15 @@ impl ClassLoader {
     /// Register a new class path entry to this class loader.
     pub fn add_class_path_entry(&mut self, entry: Box<dyn ClassPathEntry>) {
         self.class_path.add_entry(entry);
+    }
+
+    /// Load a class from this class loader.
+    pub fn load_classfile(&mut self, class_name: &str) -> Result<ClassFile, ClassLoadingError> {
+        let bytes = self.class_path.read_class(class_name)?;
+        match ClassFile::from_bytes(&bytes) {
+            Ok(classfile) => Ok(classfile),
+            Err(e) => Err(ClassLoadingError::DocodingError(e)),
+        }
     }
 }
 
@@ -75,6 +84,7 @@ pub trait ClassPathEntry: Debug {
 pub enum ClassLoadingError {
     NotFound,
     IOError(std::io::Error),
+    DocodingError(ParsingError),
     Unknown,
 }
 
