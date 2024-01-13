@@ -15,6 +15,37 @@ use super::{U1, U2, U4};
 #[br(big, import(count: U2))]
 pub struct ConstantPool (#[br(parse_with = parse_constant_pool, args(count))] pub Vec<ConstantPoolEntry>);
 
+impl ConstantPool {
+    /// Get the [ConstantPoolEntry] at the given index.
+    pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        self.0.get(index)
+    }
+
+    /// Get the [ConstantPoolInfo] at the given index.
+    pub fn get_info(&self, index: usize) -> Option<&ConstantPoolInfo> {
+        match self.get(index) {
+            Some(ConstantPoolEntry::Entry(info)) => Some(info),
+            _ => None,
+        }
+    }
+
+    /// Get the UTF8 string ([Utf8Info]) at the given index.
+    pub fn get_utf8_string<'a>(&'a self, index: usize) -> Option<Cow<'a, str>> {
+        match self.get_info(index) {
+            Some(ConstantPoolInfo::Utf8Info(utf8)) => utf8.to_string(),
+            _ => None,
+        }
+    }
+
+    /// Get the class name from the [ClassInfo] at the given index.
+    pub fn get_class_name<'a>(&'a self, index: usize) -> Option<Cow<'a, str>> {
+        match self.get_info(index) {
+            Some(ConstantPoolInfo::ClassInfo(class)) => self.get_utf8_string(class.name_index as usize),
+            _ => None,
+        }
+    }
+}
+
 /// Model of a Constant Pool Entry
 ///
 /// Each entry might be a real entry or a tombstone. The tombstone is used to

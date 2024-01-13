@@ -1,7 +1,9 @@
+use std::borrow::Cow;
+
 use dumpster::Collectable;
 use flagset::{FlagSet, flags};
 use binrw::{BinRead, BinReaderExt, binrw};
-use super::{U1, U2, U4, ConstantPool, AttributeInfo};
+use super::{U1, U2, U4, ConstantPool, AttributeInfo, DecodingError};
 
 /// Model of a Class Info
 ///
@@ -71,9 +73,55 @@ pub struct ClassFile {
 }
 
 impl ClassFile {
+    /// Read a class file from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, binrw::Error> {
         let mut reader = std::io::Cursor::new(bytes);
         Self::read(&mut reader)
+    }
+
+    /// Get a reference to the constant pool of this class file.
+    pub fn constant_pool(&self) -> &ConstantPool {
+        &self.constant_pool
+    }
+
+    /// Get the name of the current class.
+    pub fn class_name<'a>(&'a self) -> Result<Cow<'a, str>, DecodingError> {
+        match self.constant_pool.get_class_name(self.this_class as usize) {
+            Some(name) => Ok(name),
+            None => Err(DecodingError::InvalidThisClass { index: self.this_class as usize, message: None}),
+        }
+    }
+
+    /// Get the name of the super class.
+    ///
+    /// Returns `Ok(None)` if the super class is [java.lang.Object]. Otherwise, the super
+    /// class name is returned.
+    pub fn super_class_name<'a>(&'a self) -> Result<Option<Cow<'a, str>>, DecodingError> {
+        if self.super_class == 0 {
+            Ok(None)
+        } else {
+            match self.constant_pool.get_class_name(self.super_class as usize) {
+                Some(name) => Ok(Some(name)),
+                None => Err(DecodingError::InvalidSuperClass { index: self.super_class as usize, message: None}),
+            }
+        }
+    }
+
+    /// Get the name of the super interfaces.
+    pub fn super_interfaces_names<'a>(&'a self) -> Result<Vec<Cow<'a, str>>, DecodingError> {
+        let mut names = Vec::new();
+        for interface in &self.interfaces {
+            match self.constant_pool.get_class_name(*interface as usize) {
+                Some(name) => names.push(name),
+                None => return Err(DecodingError::InvalidInterface { index: *interface as usize, message: None}),
+            }
+        }
+        Ok(names)
+    }
+
+    /// Get the access flags of this class.
+    pub fn access_flags(&self) -> FlagSet<ClassAccessFlags> {
+        self.access_flags
     }
 }
 

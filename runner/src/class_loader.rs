@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use crate::class::{Class, self};
-use reader::base::{ClassFile, ParsingError};
+use reader::base::{ClassFile, ParsingError, DecodingError};
+use snafu::Snafu;
 
 /// Runtime representation of a class loader.
 ///
@@ -29,7 +30,7 @@ impl ClassLoader {
         let bytes = self.class_path.read_class(class_name)?;
         match ClassFile::from_bytes(&bytes) {
             Ok(classfile) => Ok(classfile),
-            Err(e) => Err(ClassLoadingError::DocodingError(e)),
+            Err(e) => Err(e.into()),
         }
     }
 }
@@ -80,11 +81,30 @@ pub trait ClassPathEntry: Debug {
     fn read_class(&self, name: &str) -> Result<Vec<u8>, ClassLoadingError>;
 }
 
-#[derive(Debug)]
+/// Class loading error.
+///
+/// This is the error type that will be used when loading classes, either due
+/// to an IO error, a parsing error, a decoding error, etc...
+#[derive(Debug, Snafu)]
 pub enum ClassLoadingError {
+    #[snafu(display("Class not found"))]
     NotFound,
-    IOError(std::io::Error),
-    DocodingError(ParsingError),
+    #[snafu(context(false))]
+    #[snafu(display("IO error: {}", source))]
+    IOError {
+        source: std::io::Error,
+    },
+    #[snafu(context(false))]
+    #[snafu(display("Parsing error: {}", source))]
+    ParsingError {
+        source: ParsingError,
+    },
+    #[snafu(context(false))]
+    #[snafu(display("Decoding error: {}", source))]
+    DocodingError {
+        source: DecodingError,
+    },
+    #[snafu(display("Unknown error"))]
     Unknown,
 }
 
@@ -108,7 +128,7 @@ impl ClassPathEntry for ClassPathDirEntry {
             Ok(bytes) => Ok(bytes),
             Err(e) => match e.kind() {
                 std::io::ErrorKind::NotFound => Err(ClassLoadingError::NotFound),
-                _ => Err(ClassLoadingError::IOError(e)),
+                _ => Err(e.into()),
             },
         }
     }

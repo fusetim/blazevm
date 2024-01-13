@@ -1,7 +1,7 @@
 use dumpster::Collectable;
 
 /// Runtime representation of the constant pool.
-#[derive(Debug, Collectable)]
+#[derive(Debug, Collectable, Clone)]
 pub struct ConstantPool {
     pub entries: Vec<ConstantPoolEntry>,
 }
@@ -21,7 +21,7 @@ impl ConstantPool {
 }
 
 /// Runtime representation of a constant pool entry.
-#[derive(Debug, Collectable)]
+#[derive(Debug, Collectable, Clone)]
 pub enum ConstantPoolEntry {
     IntegerConstant(i32),
     FloatConstant(f32),
