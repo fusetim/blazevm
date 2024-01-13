@@ -1,26 +1,26 @@
 /// Runtime representation of the constant pool.
 #[derive(Debug)]
-pub struct RTConstantPool {
-    pub entries: Vec<RTConstantPoolEntry>,
+pub struct ConstantPool {
+    pub entries: Vec<ConstantPoolEntry>,
 }
 
-impl RTConstantPool {
-    pub fn new(entries: Vec<RTConstantPoolEntry>) -> Self {
+impl ConstantPool {
+    pub fn new(entries: Vec<ConstantPoolEntry>) -> Self {
         Self { entries }
     }
 
-    pub fn get(&self, index: usize) -> Option<&RTConstantPoolEntry> {
+    pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
         self.entries.get(index)
     }
 
-    pub fn append(&mut self, entry: RTConstantPoolEntry) {
+    pub fn append(&mut self, entry: ConstantPoolEntry) {
         self.entries.push(entry)
     }
 }
 
 /// Runtime representation of a constant pool entry.
 #[derive(Debug)]
-pub enum RTConstantPoolEntry {
+pub enum ConstantPoolEntry {
     IntegerConstant(i32),
     FloatConstant(f32),
     LongConstant(i64),
