@@ -2,9 +2,16 @@ use std::{collections::HashMap, ops::Deref};
 
 use dumpster::{sync::Gc, Collectable};
 use flagset::FlagSet;
-use reader::base::{classfile::{self, ClassAccessFlags}, ClassFile};
+use reader::base::{
+    classfile::{self, ClassAccessFlags},
+    ClassFile,
+};
 
-use crate::{class_loader::{ClassLoader, ClassLoadingError}, class::{Class, ClassId, self}, constant_pool::ConstantPool};
+use crate::{
+    class::{self, Class, ClassId},
+    class_loader::{ClassLoader, ClassLoadingError, DerivingError},
+    constant_pool::ConstantPool,
+};
 
 /// Representation of the class manager.
 ///
@@ -34,7 +41,10 @@ impl ClassManager {
         }
     }
 
-    pub fn get_or_resolve_class(&mut self, class_name: &str) -> Result<Gc<LoadedClass>, ClassLoadingError> {
+    pub fn get_or_resolve_class(
+        &mut self,
+        class_name: &str,
+    ) -> Result<Gc<LoadedClass>, ClassLoadingError> {
         if let Some(class) = self.classes_by_name.get(class_name) {
             return Ok(class.clone());
         } else {
@@ -42,22 +52,73 @@ impl ClassManager {
             stack.push(class_name.to_string());
             while let Some(class_name) = stack.pop() {
                 if let Some(class) = self.classes_by_name.get(&class_name) {
+                    let class = class.clone();
                     match class.deref() {
                         LoadedClass::Loaded(_) => (),
                         LoadedClass::Loading(loading) => {
-                            // TODO: Check for circular dependencies.
-                            // + Implement the final steps of class loading.
+                            // We will assume that the supe classes and interfaces have been loaded from now on.
+                            // Therefore we just have to create the real loaded class.
+                            let superclass = if let Some(superclass_name) = &loading.super_class {
+                                match self.classes_by_name.get(superclass_name) {
+                                    Some(class) => match class.deref() {
+                                        LoadedClass::Loaded(class) => Some(class.clone()),
+                                        LoadedClass::Loading(_) => {
+                                            return Err(DerivingError::SuperClassNotLoaded.into())
+                                        }
+                                    },
+                                    None => return Err(DerivingError::SuperClassNotLoaded.into()),
+                                }
+                            } else {
+                                None
+                            };
+
+                            let mut interfaces = Vec::new();
+                            for interface_name in &loading.interfaces {
+                                match self.classes_by_name.get(interface_name) {
+                                    Some(class) => match class.deref() {
+                                        LoadedClass::Loaded(class) => {
+                                            interfaces.push(class.clone())
+                                        }
+                                        LoadedClass::Loading(_) => {
+                                            return Err(
+                                                DerivingError::SuperInterfaceNotLoaded.into()
+                                            )
+                                        }
+                                    },
+                                    None => {
+                                        return Err(DerivingError::SuperInterfaceNotLoaded.into())
+                                    }
+                                }
+                            }
+
+                            let class = Gc::new(Class {
+                                id: loading.class_id,
+                                name: loading.class_name.clone(),
+                                superclass,
+                                interfaces,
+                                // flags: loading.flags,
+                                // constant_pool: loading.constant_pool.clone(),
+                                // fields: loading.fields.clone(),
+                                // methods: loading.methods.clone(),
+                            });
+                            let loaded_class = Gc::new(LoadedClass::Loaded(class));
+
+                            // Update the class manager with the fully loaded class.
+                            let _ = self.classes_by_name.insert(class_name.clone(), loaded_class.clone());
+                            let _ = self.classes_by_id.insert(loading.class_id, loaded_class.clone());
                         }
                     }
                 } else {
                     let classfile = self.class_loader.load_classfile(&class_name)?;
                     let loaded_class = self.resolve_class(classfile)?;
-                    self.classes_by_name.insert(class_name.clone(), loaded_class.clone());
-                    self.classes_by_id.insert(loaded_class.id(), loaded_class.clone());
+                    self.classes_by_name
+                        .insert(class_name.clone(), loaded_class.clone());
+                    self.classes_by_id
+                        .insert(loaded_class.id(), loaded_class.clone());
                     self.next_class_id = ClassId(self.next_class_id.0 + 1);
                     if let LoadedClass::Loading(loading) = loaded_class.deref() {
                         stack.push(class_name);
-                        for dependency in loading.class_dependencies {
+                        for dependency in &loading.class_dependencies {
                             stack.push(dependency.clone());
                         }
                     }
@@ -68,19 +129,30 @@ impl ClassManager {
         }
     }
 
-    pub fn resolve_class(&mut self, classfile: ClassFile) -> Result<Gc<LoadedClass>, ClassLoadingError> {
+    pub fn resolve_class(
+        &mut self,
+        classfile: ClassFile,
+    ) -> Result<Gc<LoadedClass>, ClassLoadingError> {
         let class_name = classfile.class_name()?;
         let class_id = self.next_class_id;
         let super_name = classfile.super_class_name()?;
         //let flags = classfile.access_flags();
         let interfaces = classfile.super_interfaces_names()?;
         let mut dependencies = Vec::new();
-        if let Some(super_name) = super_name {
-            dependencies.push(super_name.clone());
+        if let Some(ref super_name) = super_name {
+            dependencies.push(super_name.to_string());
         }
         for interface in interfaces.iter() {
-            dependencies.push(interface.clone());
+            dependencies.push(interface.to_string());
         }
+
+        if dependencies.contains(&(class_name.to_string())) {
+            return Err(DerivingError::CircularDependency {
+                class_name: class_name.to_string(),
+            }
+            .into());
+        }
+
         Ok(Gc::new(LoadedClass::Loading(LoadingClass {
             class_id,
             class_name: class_name.to_string(),
@@ -93,7 +165,6 @@ impl ClassManager {
             //methods: Vec::new(),
         })))
     }
-
 }
 
 #[derive(Debug, Clone, Collectable)]

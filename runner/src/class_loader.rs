@@ -1,7 +1,7 @@
-use std::fmt::Debug;
-use crate::class::{Class, self};
-use reader::base::{ClassFile, ParsingError, DecodingError};
+use crate::class::{self, Class};
+use reader::base::{ClassFile, DecodingError, ParsingError};
 use snafu::Snafu;
+use std::fmt::Debug;
 
 /// Runtime representation of a class loader.
 ///
@@ -47,7 +47,9 @@ pub struct ClassPath {
 impl ClassPath {
     /// Create a new empty class path.
     pub fn new() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 
     /// Add a new class path entry to this class path.
@@ -91,21 +93,30 @@ pub enum ClassLoadingError {
     NotFound,
     #[snafu(context(false))]
     #[snafu(display("IO error: {}", source))]
-    IOError {
-        source: std::io::Error,
-    },
+    IOError { source: std::io::Error },
     #[snafu(context(false))]
     #[snafu(display("Parsing error: {}", source))]
-    ParsingError {
-        source: ParsingError,
-    },
+    ParsingError { source: ParsingError },
     #[snafu(context(false))]
     #[snafu(display("Decoding error: {}", source))]
-    DocodingError {
-        source: DecodingError,
-    },
+    DocodingError { source: DecodingError },
+    #[snafu(context(false))]
+    #[snafu(display("Deriving error: {}", source))]
+    DerivingError { source: DerivingError },
     #[snafu(display("Unknown error"))]
     Unknown,
+}
+
+#[derive(Debug, Snafu)]
+pub enum DerivingError {
+    #[snafu(display("Super class not loaded"))]
+    SuperClassNotLoaded,
+
+    #[snafu(display("Interface not loaded"))]
+    SuperInterfaceNotLoaded,
+
+    #[snafu(display("Circular dependency (class {} is dependent of itself)", class_name))]
+    CircularDependency { class_name: String },
 }
 
 /// Class path entry for a directory.

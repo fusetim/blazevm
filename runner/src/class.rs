@@ -1,6 +1,6 @@
-use dumpster::{Collectable, sync::Gc};
-use reader::base::classfile::ClassAccessFlags;
 use crate::constant_pool::ConstantPool;
+use dumpster::{sync::Gc, Collectable};
+use reader::base::classfile::ClassAccessFlags;
 
 /// Runtime identifier for a class.
 ///
@@ -17,16 +17,13 @@ pub struct Class {
     pub id: ClassId,
     pub name: String,
 
-    pub constant_pool: ConstantPool,
-
+    // pub constant_pool: ConstantPool,
     pub superclass: Option<ClassRef>,
     pub interfaces: Vec<ClassRef>,
-
-    pub flags: ClassAccessFlags,
+    // pub flags: ClassAccessFlags,
     // pub fields: Vec<Field<'a>>,
     // pub methods: Vec<Method<'a>>,
 }
 
 /// Runtime representation of a class reference.
 pub type ClassRef = Gc<Class>;
-
