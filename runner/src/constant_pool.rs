@@ -4,6 +4,7 @@ use reader::base::ConstantPool as ClassfileConstantPool;
 use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry;
 use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
 use crate::class::Class;
+use crate::class::ClassId;
 use crate::class_manager::ClassManager;
 use crate::class_manager::LoadedClass;
 
@@ -41,7 +42,7 @@ impl ConstantPool {
                         cp.append(ConstantPoolEntry::FieldReference {
                             field_name: field_name.to_string(),
                             field_descriptor: field_descriptor.to_string(),
-                            implementor,
+                            implementor: implementor.id(),
                         });
                     },
                     ClassfileConstantPoolInfo::MethodRefInfo(info) => {
@@ -51,7 +52,7 @@ impl ConstantPool {
                         cp.append(ConstantPoolEntry::MethodReference {
                             method_name: method_name.to_string(),
                             method_descriptor: method_descriptor.to_string(),
-                            implementor,
+                            implementor: implementor.id(),
                         });
                     },
                     ClassfileConstantPoolInfo::InterfaceMethodRefInfo(info) => {
@@ -61,7 +62,7 @@ impl ConstantPool {
                         cp.append(ConstantPoolEntry::InterfaceMethodReference {
                             method_name: method_name.to_string(),
                             method_descriptor: method_descriptor.to_string(),
-                            implementor,
+                            implementor: implementor.id(),
                         });
                     },
                     _ => {
@@ -109,17 +110,17 @@ pub enum ConstantPoolEntry {
     FieldReference {
         field_name: String,
         field_descriptor: String,
-        implementor: Gc<LoadedClass>,
+        implementor: ClassId,
     },
     MethodReference {
         method_name: String,
         method_descriptor: String,
-        implementor: Gc<LoadedClass>,
+        implementor: ClassId,
     },
     InterfaceMethodReference {
         method_name: String,
         method_descriptor: String,
-        implementor: Gc<LoadedClass>,
+        implementor: ClassId,
     },
     // MethodHandleReference(MethodHandleReference),
     // MethodTypeReference(String),

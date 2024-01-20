@@ -94,8 +94,8 @@ impl ClassManager {
                             let class = Gc::new(Class {
                                 id: loading.class_id,
                                 name: loading.class_name.clone(),
-                                superclass,
-                                interfaces,
+                                superclass: superclass.map(|x| x.id).unwrap_or(ClassId(0)),
+                                interfaces: interfaces.iter().map(|x| x.id).collect(),
                                 // flags: loading.flags,
                                 constant_pool: loading.constant_pool.clone(),
                                 fields: loading.fields.clone(),

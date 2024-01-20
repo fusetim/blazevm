@@ -21,15 +21,12 @@ pub struct Class {
     pub name: String,
 
     pub constant_pool: ConstantPool,
-    pub superclass: Option<ClassRef>,
-    pub interfaces: Vec<ClassRef>,
+    pub superclass: ClassId,
+    pub interfaces: Vec<ClassId>,
     // pub flags: ClassAccessFlags,
     pub fields: Vec<Field>,
     pub methods: Vec<Method>,
 }
-
-/// Runtime representation of a class reference.
-pub type ClassRef = Gc<Class>;
 
 #[derive(Debug, Collectable, Clone)]
 pub struct Field {
