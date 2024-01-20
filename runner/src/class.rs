@@ -1,8 +1,17 @@
 use std::io::Cursor;
 
-use crate::{constant_pool::{ConstantPool, ConstantPoolError}, class_manager::ClassManager, class_loader::ClassLoadingError};
-use dumpster::{sync::Gc, Collectable};
-use reader::base::{classfile, ConstantPool as ClassfileConstantPool, AttributeInfo, attribute_info::{ConstantValueAttribute, CodeAttribute}, constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo};
+use crate::{
+    class_loader::ClassLoadingError,
+    class_manager::ClassManager,
+    constant_pool::{ConstantPool, ConstantPoolError},
+};
+use dumpster::Collectable;
+use reader::base::{
+    attribute_info::{CodeAttribute, ConstantValueAttribute},
+    classfile,
+    constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo,
+    AttributeInfo, ConstantPool as ClassfileConstantPool,
+};
 use reader::BinRead;
 
 /// Runtime identifier for a class.
@@ -37,10 +46,29 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn try_from_classfile(cm: &mut ClassManager, cp: &ClassfileConstantPool, fi: &classfile::FieldInfo) -> Result<Self, ClassLoadingError> {
-        let name = cp.get_utf8_string(fi.name_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: fi.name_index as usize })?;
-        let descriptor = cp.get_utf8_string(fi.descriptor_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: fi.descriptor_index as usize })?;
-        let attributes : Vec<FieldAttribute>  = fi.attributes.iter().map(|attr| parse_field_attribute(cm, cp, attr)).collect::<Result<Vec<_>, _>>()?.into_iter().flatten().collect();
+    pub fn try_from_classfile(
+        cm: &mut ClassManager,
+        cp: &ClassfileConstantPool,
+        fi: &classfile::FieldInfo,
+    ) -> Result<Self, ClassLoadingError> {
+        let name = cp.get_utf8_string(fi.name_index as usize).ok_or_else(|| {
+            ConstantPoolError::InvalidUtf8StringReference {
+                index: fi.name_index as usize,
+            }
+        })?;
+        let descriptor = cp
+            .get_utf8_string(fi.descriptor_index as usize)
+            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                index: fi.descriptor_index as usize,
+            })?;
+        let attributes: Vec<FieldAttribute> = fi
+            .attributes
+            .iter()
+            .map(|attr| parse_field_attribute(cm, cp, attr))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect();
         Ok(Self {
             name: name.to_string(),
             descriptor: descriptor.to_string(),
@@ -58,10 +86,29 @@ pub struct Method {
 }
 
 impl Method {
-    pub fn try_from_classfile(cm: &mut ClassManager, cp: &ClassfileConstantPool, mi: &classfile::MethodInfo) -> Result<Self, ClassLoadingError> {
-        let name = cp.get_utf8_string(mi.name_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: mi.name_index as usize })?;
-        let descriptor = cp.get_utf8_string(mi.descriptor_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: mi.descriptor_index as usize })?;
-        let attributes : Vec<MethodAttribute>  = mi.attributes.iter().map(|attr| parse_method_attribute(cm, cp, attr)).collect::<Result<Vec<_>, _>>()?.into_iter().flatten().collect();
+    pub fn try_from_classfile(
+        cm: &mut ClassManager,
+        cp: &ClassfileConstantPool,
+        mi: &classfile::MethodInfo,
+    ) -> Result<Self, ClassLoadingError> {
+        let name = cp.get_utf8_string(mi.name_index as usize).ok_or_else(|| {
+            ConstantPoolError::InvalidUtf8StringReference {
+                index: mi.name_index as usize,
+            }
+        })?;
+        let descriptor = cp
+            .get_utf8_string(mi.descriptor_index as usize)
+            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                index: mi.descriptor_index as usize,
+            })?;
+        let attributes: Vec<MethodAttribute> = mi
+            .attributes
+            .iter()
+            .map(|attr| parse_method_attribute(cm, cp, attr))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect();
         Ok(Self {
             name: name.to_string(),
             descriptor: descriptor.to_string(),
@@ -98,29 +145,56 @@ pub enum ConstantValue {
     Double(f64),
 }
 
-pub fn parse_field_attribute(cm: &mut ClassManager, cp: &ClassfileConstantPool, attribute: &AttributeInfo) -> Result<Option<FieldAttribute>, ClassLoadingError> {
-    let name = cp.get_utf8_string(attribute.attribute_name_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: attribute.attribute_name_index as usize })?;
+pub fn parse_field_attribute(
+    _cm: &mut ClassManager,
+    cp: &ClassfileConstantPool,
+    attribute: &AttributeInfo,
+) -> Result<Option<FieldAttribute>, ClassLoadingError> {
+    let name = cp
+        .get_utf8_string(attribute.attribute_name_index as usize)
+        .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+            index: attribute.attribute_name_index as usize,
+        })?;
     match name.as_ref() {
         "ConstantValue" => {
             let mut reader = Cursor::new(attribute.info.as_slice());
             let cvattr = ConstantValueAttribute::read(&mut reader)?;
-            let value = cp.get_info(cvattr.constant_value_index as usize).ok_or_else(|| ConstantPoolError::InvalidConstantReference { index: cvattr.constant_value_index as usize })?;
+            let value = cp
+                .get_info(cvattr.constant_value_index as usize)
+                .ok_or_else(|| ConstantPoolError::InvalidConstantReference {
+                    index: cvattr.constant_value_index as usize,
+                })?;
             match value {
-                ClassfileConstantPoolInfo::IntegerInfo(info) => Ok(Some(FieldAttribute::ConstantValue { value: ConstantValue::Integer(info.value()) })),
+                ClassfileConstantPoolInfo::IntegerInfo(info) => {
+                    Ok(Some(FieldAttribute::ConstantValue {
+                        value: ConstantValue::Integer(info.value()),
+                    }))
+                }
                 _ => unimplemented!(),
             }
-        },
+        }
         "Synthetic" => Ok(Some(FieldAttribute::Synthetic)),
         "Deprecated" => Ok(Some(FieldAttribute::Deprecated)),
         _ => {
-            log::debug!("Field attribute not implemented/unknown, ingnored: {:?}", &name);
+            log::debug!(
+                "Field attribute not implemented/unknown, ingnored: {:?}",
+                &name
+            );
             Ok(None)
         }
     }
 }
 
-pub fn parse_method_attribute(cm: &mut ClassManager, cp: &ClassfileConstantPool, attribute: &AttributeInfo) -> Result<Option<MethodAttribute>, ClassLoadingError> {
-    let name = cp.get_utf8_string(attribute.attribute_name_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: attribute.attribute_name_index as usize })?;
+pub fn parse_method_attribute(
+    _cm: &mut ClassManager,
+    cp: &ClassfileConstantPool,
+    attribute: &AttributeInfo,
+) -> Result<Option<MethodAttribute>, ClassLoadingError> {
+    let name = cp
+        .get_utf8_string(attribute.attribute_name_index as usize)
+        .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+            index: attribute.attribute_name_index as usize,
+        })?;
     match name.as_ref() {
         "Code" => {
             let mut reader = Cursor::new(attribute.info.as_slice());
@@ -131,11 +205,14 @@ pub fn parse_method_attribute(cm: &mut ClassManager, cp: &ClassfileConstantPool,
                 max_locals: codeattr.max_locals,
                 code: codeattr.code,
             }))
-        },
+        }
         "Synthetic" => Ok(Some(MethodAttribute::Synthetic)),
         "Deprecated" => Ok(Some(MethodAttribute::Deprecated)),
         _ => {
-            log::debug!("Method attribute not implemented/unknown, ingnored: {:?}", &name);
+            log::debug!(
+                "Method attribute not implemented/unknown, ingnored: {:?}",
+                &name
+            );
             Ok(None)
         }
     }

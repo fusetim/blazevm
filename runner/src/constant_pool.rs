@@ -1,12 +1,11 @@
-use dumpster::{Collectable, sync::Gc};
-use snafu::Snafu;
-use reader::base::ConstantPool as ClassfileConstantPool;
+use dumpster::Collectable;
 use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry;
 use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
-use crate::class::Class;
+use reader::base::ConstantPool as ClassfileConstantPool;
+use snafu::Snafu;
+
 use crate::class::ClassId;
 use crate::class_manager::ClassManager;
-use crate::class_manager::LoadedClass;
 
 /// Runtime representation of the constant pool.
 #[derive(Debug, Collectable, Clone)]
@@ -27,47 +26,80 @@ impl ConstantPool {
         self.entries.push(entry)
     }
 
-    pub fn from_classfile(cm: &mut ClassManager, classfile_cp: &ClassfileConstantPool) -> Result<Self, ConstantPoolError> {
+    pub fn from_classfile(
+        cm: &mut ClassManager,
+        classfile_cp: &ClassfileConstantPool,
+    ) -> Result<Self, ConstantPoolError> {
         let mut cp = ConstantPool::new(vec![]);
         for entry in classfile_cp.inner() {
             if let ClassfileConstantPoolEntry::Entry(ref entry) = entry {
                 match entry {
                     ClassfileConstantPoolInfo::IntegerInfo(info) => {
                         cp.append(ConstantPoolEntry::IntegerConstant(info.value()));
-                    },
+                    }
                     ClassfileConstantPoolInfo::FieldRefInfo(info) => {
-                        let class_name = classfile_cp.get_utf8_string(info.class_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: info.class_index as usize })?;
-                        let (field_name, field_descriptor) = classfile_cp.get_name_and_type(info.name_and_type_index as usize).ok_or_else(|| ConstantPoolError::InvalidFieldReference { index: info.name_and_type_index as usize })?;
-                        let implementor = cm.get_or_resolve_class(&class_name).map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        let class_name = classfile_cp
+                            .get_utf8_string(info.class_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                                index: info.class_index as usize,
+                            })?;
+                        let (field_name, field_descriptor) = classfile_cp
+                            .get_name_and_type(info.name_and_type_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidFieldReference {
+                                index: info.name_and_type_index as usize,
+                            })?;
+                        let implementor = cm
+                            .get_or_resolve_class(&class_name)
+                            .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
                         cp.append(ConstantPoolEntry::FieldReference {
                             field_name: field_name.to_string(),
                             field_descriptor: field_descriptor.to_string(),
                             implementor: implementor.id(),
                         });
-                    },
+                    }
                     ClassfileConstantPoolInfo::MethodRefInfo(info) => {
-                        let class_name = classfile_cp.get_utf8_string(info.class_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: info.class_index as usize })?;
-                        let (method_name, method_descriptor) = classfile_cp.get_name_and_type(info.name_and_type_index as usize).ok_or_else(|| ConstantPoolError::InvalidFieldReference { index: info.name_and_type_index as usize })?;
-                        let implementor = cm.get_or_resolve_class(&class_name).map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        let class_name = classfile_cp
+                            .get_utf8_string(info.class_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                                index: info.class_index as usize,
+                            })?;
+                        let (method_name, method_descriptor) = classfile_cp
+                            .get_name_and_type(info.name_and_type_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidFieldReference {
+                                index: info.name_and_type_index as usize,
+                            })?;
+                        let implementor = cm
+                            .get_or_resolve_class(&class_name)
+                            .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
                         cp.append(ConstantPoolEntry::MethodReference {
                             method_name: method_name.to_string(),
                             method_descriptor: method_descriptor.to_string(),
                             implementor: implementor.id(),
                         });
-                    },
+                    }
                     ClassfileConstantPoolInfo::InterfaceMethodRefInfo(info) => {
-                        let class_name = classfile_cp.get_utf8_string(info.class_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: info.class_index as usize })?;
-                        let (method_name, method_descriptor) = classfile_cp.get_name_and_type(info.name_and_type_index as usize).ok_or_else(|| ConstantPoolError::InvalidFieldReference { index: info.name_and_type_index as usize })?;
-                        let implementor = cm.get_or_resolve_class(&class_name).map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        let class_name = classfile_cp
+                            .get_utf8_string(info.class_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                                index: info.class_index as usize,
+                            })?;
+                        let (method_name, method_descriptor) = classfile_cp
+                            .get_name_and_type(info.name_and_type_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidFieldReference {
+                                index: info.name_and_type_index as usize,
+                            })?;
+                        let implementor = cm
+                            .get_or_resolve_class(&class_name)
+                            .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
                         cp.append(ConstantPoolEntry::InterfaceMethodReference {
                             method_name: method_name.to_string(),
                             method_descriptor: method_descriptor.to_string(),
                             implementor: implementor.id(),
                         });
-                    },
+                    }
                     _ => {
                         log::debug!("Constant pool entry not implemented, ingnored: {:?}", entry);
-                    },
+                    }
                 }
             }
         }
@@ -78,19 +110,13 @@ impl ConstantPool {
 #[derive(Debug, Snafu)]
 pub enum ConstantPoolError {
     #[snafu(display("Invalid UTF-8 string reference, entry index: {}", index))]
-    InvalidUtf8StringReference {
-        index: usize,
-    },
+    InvalidUtf8StringReference { index: usize },
 
     #[snafu(display("Invalid field reference, entry index: {} (either the entry at this index is not a FieldRef or the component of the entry are invalid)", index))]
-    InvalidFieldReference {
-        index: usize,
-    },
+    InvalidFieldReference { index: usize },
 
     #[snafu(display("Invalid constant reference, entry index: {}", index))]
-    InvalidConstantReference {
-        index: usize,
-    },
+    InvalidConstantReference { index: usize },
 
     #[snafu(display("Loading failure of a class/interface reference."))]
     ClassLoadingFailure,

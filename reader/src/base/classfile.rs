@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
+use super::{AttributeInfo, ConstantPool, DecodingError, U1, U2, U4};
+use binrw::{binrw, BinRead, BinReaderExt};
 use dumpster::Collectable;
-use flagset::{FlagSet, flags};
-use binrw::{BinRead, BinReaderExt, binrw};
-use super::{U1, U2, U4, ConstantPool, AttributeInfo, DecodingError};
+use flagset::{flags, FlagSet};
 
 /// Model of a Class Info
 ///
@@ -34,7 +34,7 @@ pub struct ClassFile {
     /// Flags indicating access permissions to and properties of this class,
     /// interface or module.
     #[br(map= |x: U2| FlagSet::<ClassAccessFlags>::new_truncated(x))]
-    access_flags: FlagSet::<ClassAccessFlags>,
+    access_flags: FlagSet<ClassAccessFlags>,
     /// Pointer to the [crate::base::constant_pool::ClassInfo] of the current class/interface in the constant pool.
     this_class: U2,
     /// Pointer to the [crate::base::constant_pool::ClassInfo] of the super class/interface in the constant pool.
@@ -96,7 +96,10 @@ impl ClassFile {
     pub fn class_name<'a>(&'a self) -> Result<Cow<'a, str>, DecodingError> {
         match self.constant_pool.get_class_name(self.this_class as usize) {
             Some(name) => Ok(name),
-            None => Err(DecodingError::InvalidThisClass { index: self.this_class as usize, message: None}),
+            None => Err(DecodingError::InvalidThisClass {
+                index: self.this_class as usize,
+                message: None,
+            }),
         }
     }
 
@@ -110,7 +113,10 @@ impl ClassFile {
         } else {
             match self.constant_pool.get_class_name(self.super_class as usize) {
                 Some(name) => Ok(Some(name)),
-                None => Err(DecodingError::InvalidSuperClass { index: self.super_class as usize, message: None}),
+                None => Err(DecodingError::InvalidSuperClass {
+                    index: self.super_class as usize,
+                    message: None,
+                }),
             }
         }
     }
@@ -121,7 +127,12 @@ impl ClassFile {
         for interface in &self.interfaces {
             match self.constant_pool.get_class_name(*interface as usize) {
                 Some(name) => names.push(name),
-                None => return Err(DecodingError::InvalidInterface { index: *interface as usize, message: None}),
+                None => {
+                    return Err(DecodingError::InvalidInterface {
+                        index: *interface as usize,
+                        message: None,
+                    })
+                }
             }
         }
         Ok(names)
@@ -138,7 +149,7 @@ impl ClassFile {
 pub struct FieldInfo {
     /// Access flags denoting the permissions and properties of this field.
     #[br(map= |x: U2| FlagSet::<FieldAccessFlags>::new_truncated(x))]
-    pub access_flags: FlagSet::<FieldAccessFlags>,
+    pub access_flags: FlagSet<FieldAccessFlags>,
     /// Unqualified name denoting the field.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     pub name_index: U2,
@@ -157,7 +168,7 @@ pub struct FieldInfo {
 pub struct MethodInfo {
     /// Access flags denoting the permissions and properties of this method.
     #[br(map= |x: U2| FlagSet::<MethodAccessFlags>::new_truncated(x))]
-    pub access_flags: FlagSet::<MethodAccessFlags>,
+    pub access_flags: FlagSet<MethodAccessFlags>,
     /// Unqualified name denoting the method.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
     pub name_index: U2,
@@ -270,7 +281,10 @@ mod test {
         assert_eq!(classfile.major_version, 65);
         assert_eq!(classfile.constant_pool_count, 18);
         assert_eq!(classfile.constant_pool.0.len(), 17);
-        assert_eq!(classfile.access_flags, FlagSet::<ClassAccessFlags>::new_truncated(0x0020));
+        assert_eq!(
+            classfile.access_flags,
+            FlagSet::<ClassAccessFlags>::new_truncated(0x0020)
+        );
         assert_eq!(classfile.this_class, 7);
         assert_eq!(classfile.super_class, 2);
         assert_eq!(classfile.interfaces_count, 0);
@@ -278,13 +292,19 @@ mod test {
         assert_eq!(classfile.fields_count, 1);
         assert_eq!(classfile.fields.len(), 1);
         let field = &classfile.fields[0];
-        assert_eq!(field.access_flags, FlagSet::<FieldAccessFlags>::new_truncated(0x0018));
+        assert_eq!(
+            field.access_flags,
+            FlagSet::<FieldAccessFlags>::new_truncated(0x0018)
+        );
         assert_eq!(field.name_index, 9);
         assert_eq!(field.descriptor_index, 10);
         assert_eq!(classfile.methods_count, 2);
         assert_eq!(classfile.methods.len(), 2);
         let init_method = &classfile.methods[0];
-        assert_eq!(init_method.access_flags, FlagSet::<MethodAccessFlags>::new_truncated(0));
+        assert_eq!(
+            init_method.access_flags,
+            FlagSet::<MethodAccessFlags>::new_truncated(0)
+        );
         assert_eq!(init_method.name_index, 5);
         assert_eq!(init_method.descriptor_index, 6);
         assert_eq!(init_method.attributes_count, 1);
@@ -294,7 +314,10 @@ mod test {
         assert_eq!(init_code_attribute.attribute_length, 29);
         assert_eq!(init_code_attribute.info.len(), 29);
         let main_method = &classfile.methods[1];
-        assert_eq!(main_method.access_flags, FlagSet::<MethodAccessFlags>::new_truncated(0x0009));
+        assert_eq!(
+            main_method.access_flags,
+            FlagSet::<MethodAccessFlags>::new_truncated(0x0009)
+        );
         assert_eq!(main_method.name_index, 15);
         assert_eq!(main_method.descriptor_index, 6);
         assert_eq!(main_method.attributes_count, 1);

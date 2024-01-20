@@ -1,5 +1,5 @@
-use crate::{class::{self, Class}, constant_pool::ConstantPoolError};
-use reader::base::{ClassFile, DecodingError, ParsingError, constant_pool};
+use crate::constant_pool::ConstantPoolError;
+use reader::base::{ClassFile, DecodingError, ParsingError};
 use snafu::Snafu;
 use std::fmt::Debug;
 

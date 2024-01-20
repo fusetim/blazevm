@@ -1,11 +1,8 @@
 use std::{collections::HashMap, ops::Deref};
 
 use dumpster::{sync::Gc, Collectable};
-use flagset::FlagSet;
-use reader::base::{
-    classfile::{self, ClassAccessFlags},
-    ClassFile,
-};
+
+use reader::base::ClassFile;
 
 use crate::{
     class::{self, Class, ClassId},
@@ -104,8 +101,12 @@ impl ClassManager {
                             let loaded_class = Gc::new(LoadedClass::Loaded(class));
 
                             // Update the class manager with the fully loaded class.
-                            let _ = self.classes_by_name.insert(class_name.clone(), loaded_class.clone());
-                            let _ = self.classes_by_id.insert(loading.class_id, loaded_class.clone());
+                            let _ = self
+                                .classes_by_name
+                                .insert(class_name.clone(), loaded_class.clone());
+                            let _ = self
+                                .classes_by_id
+                                .insert(loading.class_id, loaded_class.clone());
                         }
                     }
                 } else {
@@ -164,12 +165,16 @@ impl ClassManager {
             fields: classfile
                 .fields()
                 .iter()
-                .map(|field| class::Field::try_from_classfile(self, classfile.constant_pool(), field))
+                .map(|field| {
+                    class::Field::try_from_classfile(self, classfile.constant_pool(), field)
+                })
                 .collect::<Result<Vec<_>, _>>()?,
             methods: classfile
                 .methods()
                 .iter()
-                .map(|method| class::Method::try_from_classfile(self, classfile.constant_pool(), method))
+                .map(|method| {
+                    class::Method::try_from_classfile(self, classfile.constant_pool(), method)
+                })
                 .collect::<Result<Vec<_>, _>>()?,
         })))
     }

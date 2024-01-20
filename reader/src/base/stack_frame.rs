@@ -1,5 +1,5 @@
-use binrw::{binrw, BinRead, BinReaderExt, BinResult, args, Error as BinError};
 use super::{U1, U2, U4};
+use binrw::{args, binrw, BinRead, BinReaderExt, BinResult, Error as BinError};
 
 /// Entry of the stack map table of a [StackMapTableAttribute].
 ///
@@ -15,7 +15,6 @@ pub enum StackMapFrame {
     FullFrame(FullFrame),
 }
 
-
 /// This stack frame has exactly the same locals as the previous stack frame,
 /// and the number of stack items is zero.
 pub struct SameFrame {
@@ -25,7 +24,7 @@ pub struct SameFrame {
 
 /// This stack frame has exactly the same locals as the previous stack frame,
 /// and the number of stack items is 1.
-pub struct SameLocals1StackItemFrame{
+pub struct SameLocals1StackItemFrame {
     /// The offset_delta is the value of the frame_type item (64-127) minus 64.
     /// It is therefore an unsigned value between 0 and 63.
     pub offset_delta: U1,
@@ -37,7 +36,7 @@ pub struct SameLocals1StackItemFrame{
 /// previous stack frame and that the number of stack items is 1.
 #[derive(BinRead)]
 #[br(big)]
-pub struct SameLocals1StackItemFrameExtended{
+pub struct SameLocals1StackItemFrameExtended {
     // Frame type is 247.
     /// The value of the offset_delta item.
     pub offset_delta: U2,
@@ -50,7 +49,7 @@ pub struct SameLocals1StackItemFrameExtended{
 /// The operand stack is empty.
 #[derive(BinRead)]
 #[br(big)]
-pub struct ChopFrame{
+pub struct ChopFrame {
     /// The number k of absent locals.
     /// The value of k is given by the formula 251-frame_type, where frame_type is in range [248,250].
     pub k: U1,
@@ -62,9 +61,8 @@ pub struct ChopFrame{
 /// previous stack frame and that the number of stack items is zero.
 #[derive(BinRead)]
 #[br(big)]
-pub struct SameFrameExtended{
+pub struct SameFrameExtended {
     // Frame type is 251.
-
     /// The value of the offset_delta item.
     pub offset_delta: U2,
 }
@@ -72,9 +70,8 @@ pub struct SameFrameExtended{
 /// This stack frame indicates that the frame has exactly the same locals as the
 /// previous stack frame but with k additional locals.
 /// The operand stack is empty.
-pub struct AppendFrame{
+pub struct AppendFrame {
     // Frame type is in range [252-254].
-
     /// The number k of additional locals.
     /// The value of k is given by the formula frame_type-251, where frame_type is in range [252-254].
     pub k: U1,
@@ -87,9 +84,8 @@ pub struct AppendFrame{
 /// This stack frame is fully specified.
 #[derive(BinRead)]
 #[br(big)]
-pub struct FullFrame{
+pub struct FullFrame {
     // Frame type is 255.
-
     /// The value of the offset_delta item.
     pub offset_delta: U2,
     /// The number of local variables in the local variable array.
@@ -137,35 +133,50 @@ pub fn parse_stack_map_frame() -> BinResult<StackMapFrame> {
         0..=63 => {
             let offset_delta = frame_type;
             Ok(StackMapFrame::SameFrame(SameFrame { offset_delta }))
-        },
+        }
         64..=127 => {
             let offset_delta = frame_type - 64;
             let stack = VerificationTypeInfo::read(reader)?;
-            Ok(StackMapFrame::SameLocals1StackItemFrame(SameLocals1StackItemFrame { offset_delta, stack }))
-        },
+            Ok(StackMapFrame::SameLocals1StackItemFrame(
+                SameLocals1StackItemFrame {
+                    offset_delta,
+                    stack,
+                },
+            ))
+        }
         247 => {
             let frame = SameLocals1StackItemFrameExtended::read(reader)?;
             Ok(StackMapFrame::SameLocals1StackItemFrameExtended(frame))
-        },
+        }
         248..=250 => {
             let k = 251 - frame_type;
             let offset_delta: U2 = reader.read_be()?;
             Ok(StackMapFrame::ChopFrame(ChopFrame { k, offset_delta }))
-        },
+        }
         251 => {
-            let offset_delta : U2 = reader.read_be()?;
-            Ok(StackMapFrame::SameFrameExtended(SameFrameExtended { offset_delta }))
-        },
+            let offset_delta: U2 = reader.read_be()?;
+            Ok(StackMapFrame::SameFrameExtended(SameFrameExtended {
+                offset_delta,
+            }))
+        }
         252..=254 => {
             let k = frame_type - 251;
-            let offset_delta : U2 = reader.read_be()?;
-            let locals =  Vec::<VerificationTypeInfo>::read_be_args(reader, args!(count: k as usize))?;
-            Ok(StackMapFrame::AppendFrame(AppendFrame { k, offset_delta, locals }))
-        },
+            let offset_delta: U2 = reader.read_be()?;
+            let locals =
+                Vec::<VerificationTypeInfo>::read_be_args(reader, args!(count: k as usize))?;
+            Ok(StackMapFrame::AppendFrame(AppendFrame {
+                k,
+                offset_delta,
+                locals,
+            }))
+        }
         255 => {
             let frame = FullFrame::read(reader)?;
             Ok(StackMapFrame::FullFrame(frame))
-        },
-        x => Err(BinError::BadMagic { pos: reader.stream_position().unwrap_or(0), found: Box::new(x)})
+        }
+        x => Err(BinError::BadMagic {
+            pos: reader.stream_position().unwrap_or(0),
+            found: Box::new(x),
+        }),
     }
 }

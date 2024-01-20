@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
+use super::{U1, U2, U4};
 use binrw::{BinRead, BinReaderExt, BinResult};
 use cesu8::from_java_cesu8;
-use super::{U1, U2, U4};
 
 /// Model of the Constant Pool
 ///
@@ -13,7 +13,9 @@ use super::{U1, U2, U4};
 /// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.4>
 #[derive(BinRead, Debug)]
 #[br(big, import(count: U2))]
-pub struct ConstantPool (#[br(parse_with = parse_constant_pool, args(count))] pub Vec<ConstantPoolEntry>);
+pub struct ConstantPool(
+    #[br(parse_with = parse_constant_pool, args(count))] pub Vec<ConstantPoolEntry>,
+);
 
 impl ConstantPool {
     /// Get the [ConstantPoolEntry] at the given index.
@@ -40,7 +42,9 @@ impl ConstantPool {
     /// Get the class name from the [ClassInfo] at the given index.
     pub fn get_class_name<'a>(&'a self, index: usize) -> Option<Cow<'a, str>> {
         match self.get_info(index) {
-            Some(ConstantPoolInfo::ClassInfo(class)) => self.get_utf8_string(class.name_index as usize),
+            Some(ConstantPoolInfo::ClassInfo(class)) => {
+                self.get_utf8_string(class.name_index as usize)
+            }
             _ => None,
         }
     }
@@ -57,7 +61,7 @@ impl ConstantPool {
                     (Some(name), Some(descriptor)) => Some((name, descriptor)),
                     _ => None,
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -220,7 +224,6 @@ impl IntegerInfo {
     pub fn value(&self) -> i32 {
         self.bytes as i32
     }
-
 }
 
 /// NameAndTypeInfo is a [ConstantPool] entry.
@@ -246,14 +249,46 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
     while i < count {
         let tag = U1::read_be(reader)?;
         let (entry, tombstone) = match tag {
-            1 => (ConstantPoolEntry::Entry(ConstantPoolInfo::Utf8Info(Utf8Info::read(reader)?)), false),
-            3 => (ConstantPoolEntry::Entry(ConstantPoolInfo::IntegerInfo(IntegerInfo::read(reader)?)), false),
-            7 => (ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(ClassInfo::read(reader)?)), false),
-            8 => (ConstantPoolEntry::Entry(ConstantPoolInfo::StringInfo(StringInfo::read(reader)?)), false),
-            9 => (ConstantPoolEntry::Entry(ConstantPoolInfo::FieldRefInfo(FieldRefInfo::read(reader)?)), false),
-            10 => (ConstantPoolEntry::Entry(ConstantPoolInfo::MethodRefInfo(MethodRefInfo::read(reader)?)), false),
-            11 => (ConstantPoolEntry::Entry(ConstantPoolInfo::InterfaceMethodRefInfo(InterfaceMethodRefInfo::read(reader)?)), false),
-            12 => (ConstantPoolEntry::Entry(ConstantPoolInfo::NameAndTypeInfo(NameAndTypeInfo::read(reader)?)), false),
+            1 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::Utf8Info(Utf8Info::read(reader)?)),
+                false,
+            ),
+            3 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::IntegerInfo(IntegerInfo::read(reader)?)),
+                false,
+            ),
+            7 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(ClassInfo::read(reader)?)),
+                false,
+            ),
+            8 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::StringInfo(StringInfo::read(reader)?)),
+                false,
+            ),
+            9 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::FieldRefInfo(FieldRefInfo::read(
+                    reader,
+                )?)),
+                false,
+            ),
+            10 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::MethodRefInfo(MethodRefInfo::read(
+                    reader,
+                )?)),
+                false,
+            ),
+            11 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::InterfaceMethodRefInfo(
+                    InterfaceMethodRefInfo::read(reader)?,
+                )),
+                false,
+            ),
+            12 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::NameAndTypeInfo(NameAndTypeInfo::read(
+                    reader,
+                )?)),
+                false,
+            ),
             x => unimplemented!("Constant pool tag {} not implemented", x),
         };
         entries.push(dbg!(entry));
@@ -266,7 +301,6 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
     Ok(entries)
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -274,19 +308,29 @@ mod test {
 
     #[test]
     fn read_utf8_info() {
-        let data = [0x00, 0x0B, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98];
+        let data = [
+            0x00, 0x0B, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98,
+        ];
         let mut reader = Cursor::new(&data);
         let info = Utf8Info::read(&mut reader).unwrap();
         assert_eq!(info.length, 11);
-        assert_eq!(info.bytes, vec![0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98]);
+        assert_eq!(
+            info.bytes,
+            vec![0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98]
+        );
     }
 
     #[test]
     fn load_utf8i_in_constant_pool() {
-        let data = [0x01, 0x00, 0x0B, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98];
+        let data = [
+            0x01, 0x00, 0x0B, 0x48, 0x65, 0x6C, 0x6C, 0x6F, 0xE2, 0x9C, 0x8B, 0xF0, 0x9F, 0x98,
+        ];
         let mut reader = Cursor::new(&data);
         let pool = ConstantPool::read_args(&mut reader, (1,)).unwrap();
         assert!(pool.0.len() == 1);
-        assert!(matches!(pool.0[0], ConstantPoolEntry::Entry(ConstantPoolInfo::Utf8Info(_))));
+        assert!(matches!(
+            pool.0[0],
+            ConstantPoolEntry::Entry(ConstantPoolInfo::Utf8Info(_))
+        ));
     }
 }

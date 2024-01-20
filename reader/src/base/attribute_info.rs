@@ -1,4 +1,4 @@
-use super::{ConstantPool, U1, U2, U4, StackMapFrame, stack_frame::parse_stack_map_frame};
+use super::{stack_frame::parse_stack_map_frame, ConstantPool, StackMapFrame, U1, U2, U4};
 use binrw::{binrw, BinRead, BinReaderExt, BinResult};
 use flagset::{flags, FlagSet};
 
@@ -160,14 +160,13 @@ pub struct NestMembersAttribute {
 ///
 /// This attribute records the classes that are permitted to extend the current class.
 ///
-/// Note: For final classes (cf [ClassAccessFlags::FINAL](super::classfile::ClassAccessFlags)), this 
+/// Note: For final classes (cf [ClassAccessFlags::FINAL](super::classfile::ClassAccessFlags)), this
 /// attribute MUST exist and MUST be empty.
 ///
 /// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.7.31>
 #[derive(BinRead)]
 #[br(big)]
 pub struct PermittedSubclassesAttribute {
-
     pub num_classes: U2,
     #[br(count=num_classes)]
     pub classes: Vec<U2>,
@@ -189,7 +188,6 @@ pub struct ExceptionsAttribute {
     pub exception_index_table: Vec<U2>,
 }
 
-
 /// Attribute InnerClasses, a member of [AttributeInfo].
 ///
 /// This attribute records the inner classes of a class or interface.
@@ -198,7 +196,7 @@ pub struct ExceptionsAttribute {
 pub struct InnerClassesAttribute {
     /// The number of entries in the classes array.
     pub number_of_classes: U2,
-    /// References all the class/interface that are represented as a [ClassInfo](super::constant_pool::ClassInfo) 
+    /// References all the class/interface that are represented as a [ClassInfo](super::constant_pool::ClassInfo)
     /// in the constant pool, but that are not a member of a package.
     pub classes: Vec<InnerClass>,
 }
