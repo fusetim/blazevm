@@ -17,7 +17,7 @@ pub struct Class {
     pub id: ClassId,
     pub name: String,
 
-    // pub constant_pool: ConstantPool,
+    pub constant_pool: ConstantPool,
     pub superclass: Option<ClassRef>,
     pub interfaces: Vec<ClassRef>,
     // pub flags: ClassAccessFlags,

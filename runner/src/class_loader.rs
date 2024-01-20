@@ -1,5 +1,5 @@
-use crate::class::{self, Class};
-use reader::base::{ClassFile, DecodingError, ParsingError};
+use crate::{class::{self, Class}, constant_pool::ConstantPoolError};
+use reader::base::{ClassFile, DecodingError, ParsingError, constant_pool};
 use snafu::Snafu;
 use std::fmt::Debug;
 
@@ -103,6 +103,9 @@ pub enum ClassLoadingError {
     #[snafu(context(false))]
     #[snafu(display("Deriving error: {}", source))]
     DerivingError { source: DerivingError },
+    #[snafu(context(false))]
+    #[snafu(display("Constant Pool Loading error: {}", source))]
+    ConstantPoolLoadingError { source: ConstantPoolError },
     #[snafu(display("Unknown error"))]
     Unknown,
 }

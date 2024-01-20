@@ -10,5 +10,6 @@ license = "CECILL-2.1"
 [dependencies]
 dumpster = "0.1.2"
 flagset = "0.4.4"
+log = { version = "0.4.20", features = ["std"] }
 reader = { path = "../reader" }
 snafu = "0.8.0"

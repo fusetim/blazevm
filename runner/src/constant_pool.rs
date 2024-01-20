@@ -1,4 +1,11 @@
-use dumpster::Collectable;
+use dumpster::{Collectable, sync::Gc};
+use snafu::Snafu;
+use reader::base::ConstantPool as ClassfileConstantPool;
+use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry;
+use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
+use crate::class::Class;
+use crate::class_manager::ClassManager;
+use crate::class_manager::LoadedClass;
 
 /// Runtime representation of the constant pool.
 #[derive(Debug, Collectable, Clone)]
@@ -18,6 +25,69 @@ impl ConstantPool {
     pub fn append(&mut self, entry: ConstantPoolEntry) {
         self.entries.push(entry)
     }
+
+    pub fn from_classfile(cm: &mut ClassManager, classfile_cp: &ClassfileConstantPool) -> Result<Self, ConstantPoolError> {
+        let mut cp = ConstantPool::new(vec![]);
+        for entry in classfile_cp.inner() {
+            if let ClassfileConstantPoolEntry::Entry(ref entry) = entry {
+                match entry {
+                    ClassfileConstantPoolInfo::IntegerInfo(info) => {
+                        cp.append(ConstantPoolEntry::IntegerConstant(info.value()));
+                    },
+                    ClassfileConstantPoolInfo::FieldRefInfo(info) => {
+                        let class_name = classfile_cp.get_utf8_string(info.class_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: info.class_index as usize })?;
+                        let (field_name, field_descriptor) = classfile_cp.get_name_and_type(info.name_and_type_index as usize).ok_or_else(|| ConstantPoolError::InvalidFieldReference { index: info.name_and_type_index as usize })?;
+                        let implementor = cm.get_or_resolve_class(&class_name).map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        cp.append(ConstantPoolEntry::FieldReference {
+                            field_name: field_name.to_string(),
+                            field_descriptor: field_descriptor.to_string(),
+                            implementor,
+                        });
+                    },
+                    ClassfileConstantPoolInfo::MethodRefInfo(info) => {
+                        let class_name = classfile_cp.get_utf8_string(info.class_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: info.class_index as usize })?;
+                        let (method_name, method_descriptor) = classfile_cp.get_name_and_type(info.name_and_type_index as usize).ok_or_else(|| ConstantPoolError::InvalidFieldReference { index: info.name_and_type_index as usize })?;
+                        let implementor = cm.get_or_resolve_class(&class_name).map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        cp.append(ConstantPoolEntry::MethodReference {
+                            method_name: method_name.to_string(),
+                            method_descriptor: method_descriptor.to_string(),
+                            implementor,
+                        });
+                    },
+                    ClassfileConstantPoolInfo::InterfaceMethodRefInfo(info) => {
+                        let class_name = classfile_cp.get_utf8_string(info.class_index as usize).ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference { index: info.class_index as usize })?;
+                        let (method_name, method_descriptor) = classfile_cp.get_name_and_type(info.name_and_type_index as usize).ok_or_else(|| ConstantPoolError::InvalidFieldReference { index: info.name_and_type_index as usize })?;
+                        let implementor = cm.get_or_resolve_class(&class_name).map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        cp.append(ConstantPoolEntry::InterfaceMethodReference {
+                            method_name: method_name.to_string(),
+                            method_descriptor: method_descriptor.to_string(),
+                            implementor,
+                        });
+                    },
+                    _ => {
+                        log::debug!("Constant pool entry not implemented, ingnored: {:?}", entry);
+                    },
+                }
+            }
+        }
+        Ok(cp)
+    }
+}
+
+#[derive(Debug, Snafu)]
+pub enum ConstantPoolError {
+    #[snafu(display("Invalid UTF-8 string reference, entry index: {}", index))]
+    InvalidUtf8StringReference {
+        index: usize,
+    },
+
+    #[snafu(display("Invalid field reference, entry index: {} (either the entry at this index is not a FieldRef or the component of the entry are invalid)", index))]
+    InvalidFieldReference {
+        index: usize,
+    },
+
+    #[snafu(display("Loading failure of a class/interface reference."))]
+    ClassLoadingFailure,
 }
 
 /// Runtime representation of a constant pool entry.
@@ -28,7 +98,24 @@ pub enum ConstantPoolEntry {
     LongConstant(i64),
     DoubleConstant(f64),
     // TODO: String constant should be a reference to a java String object.
-    StringConstant(String),
+    // StringConstant(String),
     // TODO: Implement the rest of the constant pool entries, in particular
     // the symbolic references (class, field, method, interface method, ...).
+    FieldReference {
+        field_name: String,
+        field_descriptor: String,
+        implementor: Gc<LoadedClass>,
+    },
+    MethodReference {
+        method_name: String,
+        method_descriptor: String,
+        implementor: Gc<LoadedClass>,
+    },
+    InterfaceMethodReference {
+        method_name: String,
+        method_descriptor: String,
+        implementor: Gc<LoadedClass>,
+    },
+    // MethodHandleReference(MethodHandleReference),
+    // MethodTypeReference(String),
 }

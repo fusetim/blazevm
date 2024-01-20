@@ -44,6 +44,28 @@ impl ConstantPool {
             _ => None,
         }
     }
+
+    /// Get the name and type of a [NameAndTypeInfo] at the given index.
+    ///
+    /// The returned tuple is (name, descriptor).
+    pub fn get_name_and_type<'a>(&'a self, index: usize) -> Option<(Cow<'a, str>, Cow<'a, str>)> {
+        match self.get_info(index) {
+            Some(ConstantPoolInfo::NameAndTypeInfo(name_and_type)) => {
+                let name = self.get_utf8_string(name_and_type.name_index as usize);
+                let descriptor = self.get_utf8_string(name_and_type.descriptor_index as usize);
+                match (name, descriptor) {
+                    (Some(name), Some(descriptor)) => Some((name, descriptor)),
+                    _ => None,
+                }
+            },
+            _ => None,
+        }
+    }
+
+    /// Get reference to the inner pool.
+    pub fn inner(&self) -> &Vec<ConstantPoolEntry> {
+        &self.0
+    }
 }
 
 /// Model of a Constant Pool Entry
@@ -136,12 +158,12 @@ pub struct FieldRefInfo {
     // tag: U1,
     /// [ClassInfo] reference in the [ConstantPool].
     /// Such class/interface has the field as a member.
-    class_index: U2,
+    pub class_index: U2,
     /// [NameAndTypeInfo] reference in the [ConstantPool].
     /// It identifies the name and descriptor of the field.
     ///
     /// NOTE: it should be checked that the descriptor is indeed a field descriptor.
-    name_and_type_index: U2,
+    pub name_and_type_index: U2,
 }
 
 /// MethodRefInfo is a [ConstantPool] entry.
@@ -151,12 +173,12 @@ pub struct MethodRefInfo {
     // tag: U1,
     /// [ClassInfo] reference in the [ConstantPool].
     /// Such class has the method as a member.
-    class_index: U2,
+    pub class_index: U2,
     /// [NameAndTypeInfo] reference in the [ConstantPool].
     /// It identifies the name and descriptor of the method.
     ///
     /// NOTE: it should be checked that the descriptor is indeed a method descriptor.
-    name_and_type_index: U2,
+    pub name_and_type_index: U2,
 }
 
 /// InterfaceMethodRefInfo is a [ConstantPool] entry.
@@ -166,12 +188,12 @@ pub struct InterfaceMethodRefInfo {
     // tag: U1,
     /// [ClassInfo] reference in the [ConstantPool].
     /// Such interface has the method as a member.
-    class_index: U2,
+    pub class_index: U2,
     /// [NameAndTypeInfo] reference in the [ConstantPool].
     /// It identifies the name and descriptor of the method.
     ///
     /// NOTE: it should be checked that the descriptor is indeed a method descriptor.
-    name_and_type_index: U2,
+    pub name_and_type_index: U2,
 }
 
 /// StringInfo is a [ConstantPool] entry.
@@ -181,7 +203,7 @@ pub struct StringInfo {
     // tag: U1,
     /// A reference to a [Utf8Info] part of the [ConstantPool].
     /// This is the encoded representation of the string.
-    string_index: U2,
+    pub string_index: U2,
 }
 
 /// IntegerInfo is a [ConstantPool] entry.
@@ -191,6 +213,14 @@ pub struct IntegerInfo {
     // tag: U1,
     /// Representation of the constant in big-endian order.
     bytes: U4,
+}
+
+impl IntegerInfo {
+    /// Get the integer value of the constant.
+    pub fn value(&self) -> i32 {
+        self.bytes as i32
+    }
+
 }
 
 /// NameAndTypeInfo is a [ConstantPool] entry.
