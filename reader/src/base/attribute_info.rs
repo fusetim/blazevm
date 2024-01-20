@@ -23,7 +23,7 @@ pub struct AttributeInfo {
 pub struct ConstantValueAttribute {
     /// Index of the constant in the constant pool.
     /// The constant must be of the same type as the field.
-    constant_value_index: U2,
+    pub constant_value_index: U2,
 }
 
 /// Attribute Code, a member of [AttributeInfo].
@@ -35,25 +35,25 @@ pub struct ConstantValueAttribute {
 #[br(big)]
 pub struct CodeAttribute {
     /// The max length of the operand stack of this method.
-    max_stack: U2,
+    pub max_stack: U2,
     /// The maximum number of local variables in the local variable array allocated
     /// upon invocation of this method.
-    max_locals: U2,
+    pub max_locals: U2,
     /// The number of bytes in the bytecode array.
     code_length: U4,
     /// The bytecode array.
     #[br(count=code_length)]
-    code: Vec<U1>,
+    pub code: Vec<U1>,
     /// The number of entries in the exception table.
     exception_table_length: U2,
     /// The exception table.
     #[br(count=exception_table_length)]
-    exception_table: Vec<ExceptionTableEntry>,
+    pub exception_table: Vec<ExceptionTableEntry>,
     /// The number of attributes in the attributes table.
     attributes_count: U2,
     /// The attributes table.
     #[br(count=attributes_count)]
-    attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 /// Entry of the exception table of a [CodeAttribute].

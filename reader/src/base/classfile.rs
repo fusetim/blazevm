@@ -84,6 +84,14 @@ impl ClassFile {
         &self.constant_pool
     }
 
+    pub fn fields(&self) -> &Vec<FieldInfo> {
+        &self.fields
+    }
+
+    pub fn methods(&self) -> &Vec<MethodInfo> {
+        &self.methods
+    }
+
     /// Get the name of the current class.
     pub fn class_name<'a>(&'a self) -> Result<Cow<'a, str>, DecodingError> {
         match self.constant_pool.get_class_name(self.this_class as usize) {
@@ -130,18 +138,18 @@ impl ClassFile {
 pub struct FieldInfo {
     /// Access flags denoting the permissions and properties of this field.
     #[br(map= |x: U2| FlagSet::<FieldAccessFlags>::new_truncated(x))]
-    access_flags: FlagSet::<FieldAccessFlags>,
+    pub access_flags: FlagSet::<FieldAccessFlags>,
     /// Unqualified name denoting the field.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
-    name_index: U2,
+    pub name_index: U2,
     /// Unqualified name denoting the field descriptor.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
-    descriptor_index: U2,
+    pub descriptor_index: U2,
     // Attributes count
     attributes_count: U2,
     /// Attribute table of the field
     #[br(count=attributes_count)]
-    attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 #[derive(BinRead)]
@@ -149,18 +157,18 @@ pub struct FieldInfo {
 pub struct MethodInfo {
     /// Access flags denoting the permissions and properties of this method.
     #[br(map= |x: U2| FlagSet::<MethodAccessFlags>::new_truncated(x))]
-    access_flags: FlagSet::<MethodAccessFlags>,
+    pub access_flags: FlagSet::<MethodAccessFlags>,
     /// Unqualified name denoting the method.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
-    name_index: U2,
+    pub name_index: U2,
     /// Unqualified name denoting the method descriptor.
     /// The index must point to a valid [crate::base::constant_pool::Utf8Info] in the constant pool.
-    descriptor_index: U2,
+    pub descriptor_index: U2,
     // Attributes count
     attributes_count: U2,
     /// Attribute table of the method
     #[br(count=attributes_count)]
-    attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 flags! {

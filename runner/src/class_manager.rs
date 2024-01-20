@@ -98,8 +98,8 @@ impl ClassManager {
                                 interfaces,
                                 // flags: loading.flags,
                                 constant_pool: loading.constant_pool.clone(),
-                                // fields: loading.fields.clone(),
-                                // methods: loading.methods.clone(),
+                                fields: loading.fields.clone(),
+                                methods: loading.methods.clone(),
                             });
                             let loaded_class = Gc::new(LoadedClass::Loaded(class));
 
@@ -161,8 +161,16 @@ impl ClassManager {
             // flags,
             constant_pool: ConstantPool::from_classfile(self, classfile.constant_pool())?,
             class_dependencies: dependencies,
-            //fields: Vec::new(),
-            //methods: Vec::new(),
+            fields: classfile
+                .fields()
+                .iter()
+                .map(|field| class::Field::try_from_classfile(self, classfile.constant_pool(), field))
+                .collect::<Result<Vec<_>, _>>()?,
+            methods: classfile
+                .methods()
+                .iter()
+                .map(|method| class::Method::try_from_classfile(self, classfile.constant_pool(), method))
+                .collect::<Result<Vec<_>, _>>()?,
         })))
     }
 }
@@ -198,6 +206,6 @@ pub struct LoadingClass {
     //pub flags: FlagSet<ClassAccessFlags>,
     pub constant_pool: ConstantPool,
     pub class_dependencies: Vec<String>,
-    //pub fields: Vec<class::Field>,
-    //pub methods: Vec<class::Method>,
+    pub fields: Vec<class::Field>,
+    pub methods: Vec<class::Method>,
 }

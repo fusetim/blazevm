@@ -86,6 +86,11 @@ pub enum ConstantPoolError {
         index: usize,
     },
 
+    #[snafu(display("Invalid constant reference, entry index: {}", index))]
+    InvalidConstantReference {
+        index: usize,
+    },
+
     #[snafu(display("Loading failure of a class/interface reference."))]
     ClassLoadingFailure,
 }
