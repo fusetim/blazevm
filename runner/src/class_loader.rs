@@ -125,10 +125,17 @@ pub enum DerivingError {
 /// Class path entry for a directory.
 ///
 /// This is a class path entry that will load classes (in .class files) from a directory, or subdirectory.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClassPathDirEntry {
     /// The path of the root directory.
     path: std::path::PathBuf,
+}
+
+impl ClassPathDirEntry {
+    /// Create a new class path entry for a directory.
+    pub fn new(path: impl Into<std::path::PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
 }
 
 impl ClassPathEntry for ClassPathDirEntry {

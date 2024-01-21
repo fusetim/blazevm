@@ -37,6 +37,36 @@ pub struct Class {
     pub methods: Vec<Method>,
 }
 
+impl Class {
+    pub fn get_method(&self, name: &str, descriptor: &str) -> Option<&Method> {
+        self.methods
+            .iter()
+            .find(|method| method.name == name && method.descriptor == descriptor)
+    }
+
+    pub fn get_field(&self, name: &str) -> Option<&Field> {
+        self.fields.iter().find(|field| field.name == name)
+    }
+
+    pub fn get_field_by_index(&self, index: usize) -> Option<&Field> {
+        self.fields.get(index)
+    }
+
+    pub fn get_method_by_index(&self, index: usize) -> Option<&Method> {
+        self.methods.get(index)
+    }
+
+    pub fn index_of_method(&self, name: &str, descriptor: &str) -> Option<usize> {
+        self.methods
+            .iter()
+            .position(|method| method.name == name && method.descriptor == descriptor)
+    }
+
+    pub fn index_of_field(&self, name: &str) -> Option<usize> {
+        self.fields.iter().position(|field| field.name == name)
+    }
+}
+
 #[derive(Debug, Collectable, Clone)]
 pub struct Field {
     pub name: String,
@@ -115,6 +145,15 @@ impl Method {
             attributes,
         })
     }
+
+    pub fn get_code(&self) -> Option<&MethodCode> {
+        self.attributes
+            .iter()
+            .find_map(|attr| match attr {
+                MethodAttribute::Code(code) => Some(code),
+                _ => None,
+            })
+    }
 }
 
 #[derive(Debug, Collectable, Clone)]
@@ -126,15 +165,18 @@ pub enum FieldAttribute {
 
 #[derive(Debug, Collectable, Clone)]
 pub enum MethodAttribute {
-    Code {
-        max_stack: u16,
-        max_locals: u16,
-        code: Vec<u8>,
-        // TODO: exception_table: Vec<ExceptionTableEntry>,
-        // TODO: attributes: Vec<CodeAttribute>,
-    },
+    Code(MethodCode),
     Synthetic,
     Deprecated,
+}
+
+#[derive(Debug, Collectable, Clone)]
+pub struct MethodCode {
+    pub max_stack: u16,
+    pub max_locals: u16,
+    pub instructions: Vec<u8>,
+    // TODO: exception_table: Vec<ExceptionTableEntry>,
+    // TODO: attributes: Vec<CodeAttribute>,
 }
 
 #[derive(Debug, Collectable, Clone)]
@@ -200,11 +242,11 @@ pub fn parse_method_attribute(
             let mut reader = Cursor::new(attribute.info.as_slice());
             let codeattr = CodeAttribute::read(&mut reader)?;
             // TODO: let attributes = codeattr.attributes.iter().map(|attr| parse_code_attribute(cm, cp, attr)).collect::<Result<Vec<_>, _>>()?.into_iter().flatten().collect();
-            Ok(Some(MethodAttribute::Code {
+            Ok(Some(MethodAttribute::Code(MethodCode {
                 max_stack: codeattr.max_stack,
                 max_locals: codeattr.max_locals,
-                code: codeattr.code,
-            }))
+                instructions: codeattr.code,
+            })))
         }
         "Synthetic" => Ok(Some(MethodAttribute::Synthetic)),
         "Deprecated" => Ok(Some(MethodAttribute::Deprecated)),

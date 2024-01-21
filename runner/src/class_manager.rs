@@ -1,7 +1,5 @@
 use std::{collections::HashMap, ops::Deref};
 
-use dumpster::{sync::Gc, Collectable};
-
 use reader::base::ClassFile;
 
 use crate::{
@@ -19,10 +17,10 @@ pub struct ClassManager {
     pub class_loader: ClassLoader,
 
     /// The classes loaded by this class manager, indexed by their ID.
-    pub classes_by_id: HashMap<ClassId, Gc<LoadedClass>>,
+    pub classes_by_id: HashMap<ClassId, LoadedClass>,
 
     /// The classes loaded by this class manager, indexed by their name.
-    pub classes_by_name: HashMap<String, Gc<LoadedClass>>,
+    pub classes_by_name: HashMap<String, LoadedClass>,
 
     /// The next class ID to use.
     next_class_id: ClassId,
@@ -38,10 +36,18 @@ impl ClassManager {
         }
     }
 
+    pub fn get_class_by_id(&self, id: ClassId) -> Option<&LoadedClass> {
+        self.classes_by_id.get(&id)
+    }
+
+    pub fn get_mut_class_by_id(&mut self, id: ClassId) -> Option<&mut LoadedClass> {
+        self.classes_by_id.get_mut(&id)
+    }
+
     pub fn get_or_resolve_class(
         &mut self,
         class_name: &str,
-    ) -> Result<Gc<LoadedClass>, ClassLoadingError> {
+    ) -> Result<LoadedClass, ClassLoadingError> {
         if let Some(class) = self.classes_by_name.get(class_name) {
             return Ok(class.clone());
         } else {
@@ -50,14 +56,14 @@ impl ClassManager {
             while let Some(class_name) = stack.pop() {
                 if let Some(class) = self.classes_by_name.get(&class_name) {
                     let class = class.clone();
-                    match class.deref() {
+                    match class {
                         LoadedClass::Loaded(_) => (),
                         LoadedClass::Loading(loading) => {
                             // We will assume that the supe classes and interfaces have been loaded from now on.
                             // Therefore we just have to create the real loaded class.
                             let superclass = if let Some(superclass_name) = &loading.super_class {
                                 match self.classes_by_name.get(superclass_name) {
-                                    Some(class) => match class.deref() {
+                                    Some(class) => match class {
                                         LoadedClass::Loaded(class) => Some(class.clone()),
                                         LoadedClass::Loading(_) => {
                                             return Err(DerivingError::SuperClassNotLoaded.into())
@@ -72,7 +78,7 @@ impl ClassManager {
                             let mut interfaces = Vec::new();
                             for interface_name in &loading.interfaces {
                                 match self.classes_by_name.get(interface_name) {
-                                    Some(class) => match class.deref() {
+                                    Some(class) => match class {
                                         LoadedClass::Loaded(class) => {
                                             interfaces.push(class.clone())
                                         }
@@ -88,7 +94,7 @@ impl ClassManager {
                                 }
                             }
 
-                            let class = Gc::new(Class {
+                            let class = Class {
                                 id: loading.class_id,
                                 name: loading.class_name.clone(),
                                 superclass: superclass.map(|x| x.id).unwrap_or(ClassId(0)),
@@ -97,8 +103,8 @@ impl ClassManager {
                                 constant_pool: loading.constant_pool.clone(),
                                 fields: loading.fields.clone(),
                                 methods: loading.methods.clone(),
-                            });
-                            let loaded_class = Gc::new(LoadedClass::Loaded(class));
+                            };
+                            let loaded_class = LoadedClass::Loaded(class);
 
                             // Update the class manager with the fully loaded class.
                             let _ = self
@@ -117,7 +123,7 @@ impl ClassManager {
                     self.classes_by_id
                         .insert(loaded_class.id(), loaded_class.clone());
                     self.next_class_id = ClassId(self.next_class_id.0 + 1);
-                    if let LoadedClass::Loading(loading) = loaded_class.deref() {
+                    if let LoadedClass::Loading(loading) = loaded_class {
                         stack.push(class_name);
                         for dependency in &loading.class_dependencies {
                             stack.push(dependency.clone());
@@ -133,7 +139,7 @@ impl ClassManager {
     pub fn resolve_class(
         &mut self,
         classfile: ClassFile,
-    ) -> Result<Gc<LoadedClass>, ClassLoadingError> {
+    ) -> Result<LoadedClass, ClassLoadingError> {
         let class_name = classfile.class_name()?;
         let class_id = self.next_class_id;
         let super_name = classfile.super_class_name()?;
@@ -154,7 +160,7 @@ impl ClassManager {
             .into());
         }
 
-        Ok(Gc::new(LoadedClass::Loading(LoadingClass {
+        Ok(LoadedClass::Loading(LoadingClass {
             class_id,
             class_name: class_name.to_string(),
             super_class: super_name.map(String::from),
@@ -176,13 +182,13 @@ impl ClassManager {
                     class::Method::try_from_classfile(self, classfile.constant_pool(), method)
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-        })))
+        }))
     }
 }
 
-#[derive(Debug, Clone, Collectable)]
+#[derive(Debug, Clone)]
 pub enum LoadedClass {
-    Loaded(Gc<Class>),
+    Loaded(Class),
     Loading(LoadingClass),
 }
 
@@ -202,7 +208,7 @@ impl LoadedClass {
     }
 }
 
-#[derive(Debug, Clone, Collectable)]
+#[derive(Debug, Clone)]
 pub struct LoadingClass {
     pub class_id: ClassId,
     pub class_name: String,
