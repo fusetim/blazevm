@@ -1,5 +1,4 @@
 use crate::thread::Thread;
-use crate::class_manager::{ClassManager};
 use crate::thread::Slot;
 use super::InstructionError;
 
