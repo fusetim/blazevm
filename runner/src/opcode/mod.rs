@@ -5,6 +5,8 @@ use crate::class_manager::ClassManager;
 use crate::thread::Thread;
 
 mod constant;
+mod load;
+mod store;
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
@@ -455,24 +457,73 @@ pub fn read_instruction(mut reader: impl Read) -> Result<(usize, Opcode), Instru
 impl Opcode {
     pub fn execute(&self, thread: &mut Thread, cm: &mut ClassManager) -> Result<(), InstructionError>{
         match self {
-            Opcode::Nop => Ok(()),
+            Opcode::Nop => constant::nop(thread),
             // Opcode::AConstNull
-            Opcode::IConstM1 => constant::iconst_m1(thread, cm),
-            Opcode::IConst0 => constant::iconst_0(thread, cm),
-            Opcode::IConst1 => constant::iconst_1(thread, cm),
-            Opcode::IConst2 => constant::iconst_2(thread, cm),
-            Opcode::IConst3 => constant::iconst_3(thread, cm),
-            Opcode::IConst4 => constant::iconst_4(thread, cm),
-            Opcode::IConst5 => constant::iconst_5(thread, cm),
-            Opcode::LConst0 => constant::lconst_0(thread, cm),
-            Opcode::LConst1 => constant::lconst_1(thread, cm),
-            Opcode::FConst0 => constant::fconst_0(thread, cm),
-            Opcode::FConst1 => constant::fconst_1(thread, cm),
-            Opcode::FConst2 => constant::fconst_2(thread, cm),
-            Opcode::DConst0 => constant::dconst_0(thread, cm),
-            Opcode::DConst1 => constant::dconst_1(thread, cm),
-            Opcode::Bipush(value) => constant::bipush(thread, cm, *value),
-            Opcode::Sipush(value) => constant::sipush(thread, cm, *value),
+            Opcode::IConstM1 => constant::iconst_m1(thread),
+            Opcode::IConst0 => constant::iconst_0(thread),
+            Opcode::IConst1 => constant::iconst_1(thread),
+            Opcode::IConst2 => constant::iconst_2(thread),
+            Opcode::IConst3 => constant::iconst_3(thread),
+            Opcode::IConst4 => constant::iconst_4(thread),
+            Opcode::IConst5 => constant::iconst_5(thread),
+            Opcode::LConst0 => constant::lconst_0(thread),
+            Opcode::LConst1 => constant::lconst_1(thread),
+            Opcode::FConst0 => constant::fconst_0(thread),
+            Opcode::FConst1 => constant::fconst_1(thread),
+            Opcode::FConst2 => constant::fconst_2(thread),
+            Opcode::DConst0 => constant::dconst_0(thread),
+            Opcode::DConst1 => constant::dconst_1(thread),
+            Opcode::Bipush(value) => constant::bipush(thread, *value),
+            Opcode::Sipush(value) => constant::sipush(thread, *value),
+            Opcode::Ldc(value) => constant::ldc(thread, cm, *value),
+            Opcode::LdcW(value) => constant::ldc_w(thread, cm, *value),
+            Opcode::Ldc2W(value) => constant::ldc2_w(thread, cm, *value),
+            Opcode::ILoad(index) => load::iload(thread, *index),
+            Opcode::LLoad(index) => load::lload(thread, *index),
+            Opcode::FLoad(index) => load::fload(thread, *index),
+            Opcode::DLoad(index) => load::dload(thread, *index),
+            // TODO: implement ALoad
+            Opcode::ILoad0 => load::iload_0(thread),
+            Opcode::ILoad1 => load::iload_1(thread),
+            Opcode::ILoad2 => load::iload_2(thread),
+            Opcode::ILoad3 => load::iload_3(thread),
+            Opcode::LLoad0 => load::lload_0(thread),
+            Opcode::LLoad1 => load::lload_1(thread),
+            Opcode::LLoad2 => load::lload_2(thread),
+            Opcode::LLoad3 => load::lload_3(thread),
+            Opcode::FLoad0 => load::fload_0(thread),
+            Opcode::FLoad1 => load::fload_1(thread),
+            Opcode::FLoad2 => load::fload_2(thread),
+            Opcode::FLoad3 => load::fload_3(thread),
+            Opcode::DLoad0 => load::dload_0(thread),
+            Opcode::DLoad1 => load::dload_1(thread),
+            Opcode::DLoad2 => load::dload_2(thread),
+            Opcode::DLoad3 => load::dload_3(thread),
+            // TODO: implement ALoadN
+            // TODO: implement array load instructions
+            Opcode::IStore(index) => store::istore(thread, *index),
+            Opcode::LStore(index) => store::lstore(thread, *index),
+            Opcode::FStore(index) => store::fstore(thread, *index),
+            Opcode::DStore(index) => store::dstore(thread, *index),
+            // TODO: implement AStore
+            Opcode::IStore0 => store::istore_0(thread),
+            Opcode::IStore1 => store::istore_1(thread),
+            Opcode::IStore2 => store::istore_2(thread),
+            Opcode::IStore3 => store::istore_3(thread),
+            Opcode::LStore0 => store::lstore_0(thread),
+            Opcode::LStore1 => store::lstore_1(thread),
+            Opcode::LStore2 => store::lstore_2(thread),
+            Opcode::LStore3 => store::lstore_3(thread),
+            Opcode::FStore0 => store::fstore_0(thread),
+            Opcode::FStore1 => store::fstore_1(thread),
+            Opcode::FStore2 => store::fstore_2(thread),
+            Opcode::FStore3 => store::fstore_3(thread),
+            Opcode::DStore0 => store::dstore_0(thread),
+            Opcode::DStore1 => store::dstore_1(thread),
+            Opcode::DStore2 => store::dstore_2(thread),
+            Opcode::DStore3 => store::dstore_3(thread),
+            // TODO: implement AStoreN
+            // TODO: implement array store instructions
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() })
         }
     }
@@ -480,6 +531,9 @@ impl Opcode {
 
 #[derive(Debug, Snafu)]
 pub enum InstructionError {
+    #[snafu(display("Invalid state: {}", context))]
+    InvalidState { context: String },
+
     #[snafu(display("Unimplemented instruction, opcode: {:?}", opcode))]
     UnimplementedInstruction { opcode: Opcode },
 
