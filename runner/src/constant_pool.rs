@@ -10,19 +10,26 @@ use crate::class_manager::ClassManager;
 /// Runtime representation of the constant pool.
 #[derive(Debug, Collectable, Clone)]
 pub struct ConstantPool {
+    /// A mapping from the constant pool index to the index of the corresponding
+    /// entry in the `entries` vector.
+    ///
+    /// Note that the index 0 is not used, as the constant pool index starts at
+    /// 1.
+    pub mappings: Vec<usize>,
     pub entries: Vec<ConstantPoolEntry>,
 }
 
 impl ConstantPool {
-    pub fn new(entries: Vec<ConstantPoolEntry>) -> Self {
-        Self { entries }
+    fn new(entries: Vec<ConstantPoolEntry>) -> Self {
+        Self { mappings: vec![0], entries }
     }
 
     pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
-        self.entries.get(index)
+        let map = self.mappings.get(index)?;
+        self.entries.get(*map)
     }
 
-    pub fn append(&mut self, entry: ConstantPoolEntry) {
+    fn append(&mut self, entry: ConstantPoolEntry) {
         self.entries.push(entry)
     }
 
@@ -96,11 +103,15 @@ impl ConstantPool {
                             method_descriptor: method_descriptor.to_string(),
                             implementor: implementor.id(),
                         });
+
                     }
                     _ => {
                         log::debug!("Constant pool entry not implemented, ingnored: {:?}", entry);
                     }
                 }
+                cp.mappings.push(cp.entries.len());
+            } else {
+                cp.mappings.push(0);
             }
         }
         Ok(cp)

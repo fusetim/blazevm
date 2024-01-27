@@ -1,6 +1,10 @@
 use std::io::Read;
 use snafu::Snafu;
 use crate::{opcode_with_operand1, opcode_with_operand2};
+use crate::class_manager::ClassManager;
+use crate::thread::Thread;
+
+mod constant;
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
@@ -448,8 +452,37 @@ pub fn read_instruction(mut reader: impl Read) -> Result<(usize, Opcode), Instru
     }
 }
 
+impl Opcode {
+    pub fn execute(&self, thread: &mut Thread, cm: &mut ClassManager) -> Result<(), InstructionError>{
+        match self {
+            Opcode::Nop => Ok(()),
+            // Opcode::AConstNull
+            Opcode::IConstM1 => constant::iconst_m1(thread, cm),
+            Opcode::IConst0 => constant::iconst_0(thread, cm),
+            Opcode::IConst1 => constant::iconst_1(thread, cm),
+            Opcode::IConst2 => constant::iconst_2(thread, cm),
+            Opcode::IConst3 => constant::iconst_3(thread, cm),
+            Opcode::IConst4 => constant::iconst_4(thread, cm),
+            Opcode::IConst5 => constant::iconst_5(thread, cm),
+            Opcode::LConst0 => constant::lconst_0(thread, cm),
+            Opcode::LConst1 => constant::lconst_1(thread, cm),
+            Opcode::FConst0 => constant::fconst_0(thread, cm),
+            Opcode::FConst1 => constant::fconst_1(thread, cm),
+            Opcode::FConst2 => constant::fconst_2(thread, cm),
+            Opcode::DConst0 => constant::dconst_0(thread, cm),
+            Opcode::DConst1 => constant::dconst_1(thread, cm),
+            Opcode::Bipush(value) => constant::bipush(thread, cm, *value),
+            Opcode::Sipush(value) => constant::sipush(thread, cm, *value),
+            x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() })
+        }
+    }
+}
+
 #[derive(Debug, Snafu)]
 pub enum InstructionError {
+    #[snafu(display("Unimplemented instruction, opcode: {:?}", opcode))]
+    UnimplementedInstruction { opcode: Opcode },
+
     #[snafu(context(false))]
     #[snafu(display("IO error: {}", source))]
     IOError { source: std::io::Error },

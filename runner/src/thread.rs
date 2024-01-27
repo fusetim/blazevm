@@ -29,19 +29,19 @@ impl Thread {
         }
     }
 
-    fn push_frame(&mut self, frame: Frame) {
+    pub(crate) fn push_frame(&mut self, frame: Frame) {
         self.stack.push(frame);
     }
 
-    fn pop_frame(&mut self) -> Option<Frame> {
+    pub(crate) fn pop_frame(&mut self) -> Option<Frame> {
         self.stack.pop()
     }
 
-    fn current_frame(&self) -> Option<&Frame> {
+    pub(crate) fn current_frame(&self) -> Option<&Frame> {
         self.stack.last()
     }
 
-    fn current_frame_mut(&mut self) -> Option<&mut Frame> {
+    pub(crate) fn current_frame_mut(&mut self) -> Option<&mut Frame> {
         self.stack.last_mut()
     }
 }
