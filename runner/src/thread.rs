@@ -62,3 +62,12 @@ pub enum Slot {
     Double(f64),
     // Object(ClassId),
 }
+
+impl Slot {
+    pub fn size(&self) -> usize {
+        match self {
+            Slot::Int(_) | Slot::Float(_) => 1,
+            Slot::Long(_) | Slot::Double(_) => 2,
+        }
+    }
+}

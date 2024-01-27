@@ -7,6 +7,13 @@ use crate::thread::Thread;
 mod constant;
 mod load;
 mod store;
+mod stack;
+mod math;
+mod conversion;
+mod comparison;
+mod control;
+mod reference;
+mod extended;
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
@@ -524,6 +531,15 @@ impl Opcode {
             Opcode::DStore3 => store::dstore_3(thread),
             // TODO: implement AStoreN
             // TODO: implement array store instructions
+            Opcode::Pop => stack::pop(thread),
+            Opcode::Pop2 => stack::pop2(thread),
+            Opcode::Dup => stack::dup(thread),
+            Opcode::DupX1 => stack::dup_x1(thread),
+            Opcode::DupX2 => stack::dup_x2(thread),
+            Opcode::Dup2 => stack::dup2(thread),
+            Opcode::Dup2X1 => stack::dup2_x1(thread),
+            Opcode::Dup2X2 => stack::dup2_x2(thread),
+            Opcode::Swap => stack::swap(thread),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() })
         }
     }
