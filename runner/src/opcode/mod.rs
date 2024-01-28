@@ -576,6 +576,21 @@ impl Opcode {
             Opcode::IXor => math::ixor(thread),
             Opcode::LXor => math::lxor(thread),
             Opcode::IInc(index, value) => math::iinc(thread, *index, *value),
+            Opcode::I2L => conversion::i2l(thread),
+            Opcode::I2F => conversion::i2f(thread),
+            Opcode::I2D => conversion::i2d(thread),
+            Opcode::L2I => conversion::l2i(thread),
+            Opcode::L2F => conversion::l2f(thread),
+            Opcode::L2D => conversion::l2d(thread),
+            Opcode::F2I => conversion::f2i(thread),
+            Opcode::F2L => conversion::f2l(thread),
+            Opcode::F2D => conversion::f2d(thread),
+            Opcode::D2I => conversion::d2i(thread),
+            Opcode::D2L => conversion::d2l(thread),
+            Opcode::D2F => conversion::d2f(thread),
+            Opcode::I2B => conversion::i2b(thread),
+            Opcode::I2C => conversion::i2c(thread),
+            Opcode::I2S => conversion::i2s(thread),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() })
         }
     }
