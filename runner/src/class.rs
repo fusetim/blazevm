@@ -147,12 +147,10 @@ impl Method {
     }
 
     pub fn get_code(&self) -> Option<&MethodCode> {
-        self.attributes
-            .iter()
-            .find_map(|attr| match attr {
-                MethodAttribute::Code(code) => Some(code),
-                _ => None,
-            })
+        self.attributes.iter().find_map(|attr| match attr {
+            MethodAttribute::Code(code) => Some(code),
+            _ => None,
+        })
     }
 }
 

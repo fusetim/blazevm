@@ -1,4 +1,8 @@
-use crate::{class_manager::ClassManager, class_loader::{ClassLoader, ClassPathDirEntry}, thread_manager::ThreadManager};
+use crate::{
+    class_loader::{ClassLoader, ClassPathDirEntry},
+    class_manager::ClassManager,
+    thread_manager::ThreadManager,
+};
 
 #[derive(Debug)]
 pub struct Vm {

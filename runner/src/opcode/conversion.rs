@@ -1,7 +1,7 @@
-use crate::thread::Thread;
-use crate::thread::Slot;
 use super::InstructionError;
-use crate::{x2y, i2truncate};
+use crate::thread::Slot;
+use crate::thread::Thread;
+use crate::{i2truncate, x2y};
 
 x2y!(i2l, Int, Long, i64);
 x2y!(i2f, Int, Float, f32);
@@ -32,14 +32,24 @@ mod macros {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$srcty(value) = slot {
-                        frame.operand_stack.push(Slot::$destty(value as $real_destty));
+                        frame
+                            .operand_stack
+                            .push(Slot::$destty(value as $real_destty));
                         thread.pc += 1;
                         Ok(())
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?} but got {:?}", stringify!($srcty), slot) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!(
+                                "Expected {:?} but got {:?}",
+                                stringify!($srcty),
+                                slot
+                            ),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
             }
         };
@@ -53,14 +63,20 @@ mod macros {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::Int(value) = slot {
-                        frame.operand_stack.push(Slot::Int((value as $real_destty) as i32));
+                        frame
+                            .operand_stack
+                            .push(Slot::Int((value as $real_destty) as i32));
                         thread.pc += 1;
                         Ok(())
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?} but got {:?}", stringify!($ty), slot) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?} but got {:?}", stringify!($ty), slot),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
             }
         };

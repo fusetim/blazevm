@@ -1,7 +1,7 @@
-use crate::thread::Thread;
-use crate::class_manager::{ClassManager};
-use crate::thread::Slot;
 use super::InstructionError;
+use crate::class_manager::ClassManager;
+use crate::thread::Slot;
+use crate::thread::Thread;
 use crate::{xload, xload_n};
 
 xload!(iload, Int);
@@ -44,10 +44,14 @@ mod macros {
                     if let Slot::$ty(value) = slot {
                         frame.operand_stack.push(Slot::$ty(*value));
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?} but got {:?}", stringify!($ty), slot) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?} but got {:?}", stringify!($ty), slot),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: format!("Local variable {} not found", index) });
+                    return Err(InstructionError::InvalidState {
+                        context: format!("Local variable {} not found", index),
+                    });
                 }
                 thread.pc += 2;
                 Ok(())
@@ -65,10 +69,14 @@ mod macros {
                     if let Slot::$ty(value) = slot {
                         frame.operand_stack.push(Slot::$ty(*value));
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?} but got {:?}", stringify!($ty), slot) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?} but got {:?}", stringify!($ty), slot),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: format!("Local variable {} not found", $index) });
+                    return Err(InstructionError::InvalidState {
+                        context: format!("Local variable {} not found", $index),
+                    });
                 }
                 thread.pc += 2;
                 Ok(())

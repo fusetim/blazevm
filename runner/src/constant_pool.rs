@@ -21,7 +21,10 @@ pub struct ConstantPool {
 
 impl ConstantPool {
     fn new(entries: Vec<ConstantPoolEntry>) -> Self {
-        Self { mappings: vec![0], entries }
+        Self {
+            mappings: vec![0],
+            entries,
+        }
     }
 
     pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
@@ -103,7 +106,6 @@ impl ConstantPool {
                             method_descriptor: method_descriptor.to_string(),
                             implementor: implementor.id(),
                         });
-
                     }
                     _ => {
                         log::debug!("Constant pool entry not implemented, ingnored: {:?}", entry);

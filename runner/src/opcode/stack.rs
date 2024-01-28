@@ -1,6 +1,6 @@
-use crate::thread::Thread;
-use crate::thread::Slot;
 use super::InstructionError;
+use crate::thread::Slot;
+use crate::thread::Thread;
 
 /// `pop` pops the top operand stack value.
 ///
@@ -10,19 +10,19 @@ use super::InstructionError;
 pub fn pop(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.pop() {
-        Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-            Err(InstructionError::InvalidState { context: "Illegal operation, pop on stack where top of stack is a long/double slot.".into() })
-        }
+        Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
+            context: "Illegal operation, pop on stack where top of stack is a long/double slot."
+                .into(),
+        }),
         Some(_) => {
             thread.pc += 1;
             Ok(())
         }
-        None => {
-            Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-        }
+        None => Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }),
     }
 }
-
 
 /// `pop2` pops the top one or two operand stack values.
 ///
@@ -35,23 +35,23 @@ pub fn pop2(thread: &mut Thread) -> Result<(), InstructionError> {
             thread.pc += 1;
             Ok(())
         }
-        Some(_) => {
-            match frame.operand_stack.pop() {
-                Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-                    thread.pc += 1;
-                    Ok(())
-                }
-                Some(_) => {
-                    Err(InstructionError::InvalidState { context: "Illegal operation, pop2 on stack where top of stack are long/double slots.".into() })
-                }
-                None => {
-                    Err(InstructionError::InvalidState { context: "Operand stack is len 1, pop2 cannot remove two elements.".into() })
-                }
+        Some(_) => match frame.operand_stack.pop() {
+            Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
+                thread.pc += 1;
+                Ok(())
             }
-        }
-        None => {
-            Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-        }
+            Some(_) => Err(InstructionError::InvalidState {
+                context:
+                    "Illegal operation, pop2 on stack where top of stack are long/double slots."
+                        .into(),
+            }),
+            None => Err(InstructionError::InvalidState {
+                context: "Operand stack is len 1, pop2 cannot remove two elements.".into(),
+            }),
+        },
+        None => Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }),
     }
 }
 
@@ -61,17 +61,18 @@ pub fn pop2(thread: &mut Thread) -> Result<(), InstructionError> {
 pub fn dup(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
-        Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-            Err(InstructionError::InvalidState { context: "Illegal operation, dup on stack where top of stack is a long/double slot.".into() })
-        }
+        Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
+            context: "Illegal operation, dup on stack where top of stack is a long/double slot."
+                .into(),
+        }),
         Some(slot) => {
             frame.operand_stack.push(slot.clone());
             thread.pc += 1;
             Ok(())
         }
-        None => {
-            Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-        }
+        None => Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }),
     }
 }
 
@@ -81,9 +82,10 @@ pub fn dup(thread: &mut Thread) -> Result<(), InstructionError> {
 pub fn dup_x1(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
-        Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-            Err(InstructionError::InvalidState { context: "Illegal operation, dup_x1 on stack where top of stack is a long/double slot.".into() })
-        }
+        Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
+            context: "Illegal operation, dup_x1 on stack where top of stack is a long/double slot."
+                .into(),
+        }),
         Some(slot) => {
             let slot = slot.clone();
             frame.operand_stack.pop();
@@ -104,9 +106,9 @@ pub fn dup_x1(thread: &mut Thread) -> Result<(), InstructionError> {
                 }
             }
         }
-        None => {
-            Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-        }
+        None => Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }),
     }
 }
 
@@ -117,9 +119,10 @@ pub fn dup_x1(thread: &mut Thread) -> Result<(), InstructionError> {
 pub fn dup_x2(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
-        Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-            Err(InstructionError::InvalidState { context: "Illegal operation, dup_x2 on stack where top of stack is a long/double slot.".into() })
-        }
+        Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
+            context: "Illegal operation, dup_x2 on stack where top of stack is a long/double slot."
+                .into(),
+        }),
         Some(slot) => {
             let slot = slot.clone();
             frame.operand_stack.pop();
@@ -153,14 +156,14 @@ pub fn dup_x2(thread: &mut Thread) -> Result<(), InstructionError> {
                         }
                     }
                 }
-                None => {
-                    Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-                }
+                None => Err(InstructionError::InvalidState {
+                    context: "Operand stack is empty".into(),
+                }),
             }
         }
-        None => {
-            Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-        }
+        None => Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }),
     }
 }
 
@@ -197,9 +200,9 @@ pub fn dup2(thread: &mut Thread) -> Result<(), InstructionError> {
                 }
             }
         }
-        None => {
-            Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
-        }
+        None => Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }),
     }
 }
 
@@ -208,10 +211,15 @@ pub fn dup2_x1(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let len = frame.operand_stack.len();
     if len < 2 {
-        return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+        return Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        });
     }
-    if frame.operand_stack[len - 1].size() == 1{
-        if len > 2 && frame.operand_stack[len - 2].size() == 1 && frame.operand_stack[len - 3].size() == 1 {
+    if frame.operand_stack[len - 1].size() == 1 {
+        if len > 2
+            && frame.operand_stack[len - 2].size() == 1
+            && frame.operand_stack[len - 3].size() == 1
+        {
             let slot1 = frame.operand_stack.pop().unwrap();
             let slot2 = frame.operand_stack.pop().unwrap();
             let slot3 = frame.operand_stack.pop().unwrap();
@@ -230,7 +238,11 @@ pub fn dup2_x1(thread: &mut Thread) -> Result<(), InstructionError> {
         frame.operand_stack.push(slot2.clone());
         frame.operand_stack.push(slot1.clone());
     } else {
-        return Err(InstructionError::InvalidState { context: "Illegal operation, dup2_x1 on stack where top of stack is a long/double slot.".into() });
+        return Err(InstructionError::InvalidState {
+            context:
+                "Illegal operation, dup2_x1 on stack where top of stack is a long/double slot."
+                    .into(),
+        });
     }
     thread.pc += 1;
     Ok(())
@@ -241,13 +253,17 @@ pub fn dup2_x2(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let len = frame.operand_stack.len();
     if len < 2 {
-        return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+        return Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        });
     }
     if frame.operand_stack[len - 1].size() == 1 {
         if frame.operand_stack[len - 2].size() == 1 {
             // Form 1 or 3
-            if len > 3 && frame.operand_stack[len - 3].size() == 1
-                && frame.operand_stack[len - 4].size() == 1 {
+            if len > 3
+                && frame.operand_stack[len - 3].size() == 1
+                && frame.operand_stack[len - 4].size() == 1
+            {
                 // Form 1
                 let slot1 = frame.operand_stack.pop().unwrap();
                 let slot2 = frame.operand_stack.pop().unwrap();
@@ -307,7 +323,9 @@ pub fn swap(thread: &mut Thread) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let len = frame.operand_stack.len();
     if len < 2 {
-        return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+        return Err(InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        });
     }
     if frame.operand_stack[len - 1].size() == 1 && frame.operand_stack[len - 2].size() == 1 {
         let slot1 = frame.operand_stack.pop().unwrap();
@@ -317,6 +335,10 @@ pub fn swap(thread: &mut Thread) -> Result<(), InstructionError> {
         thread.pc += 1;
         Ok(())
     } else {
-        Err(InstructionError::InvalidState { context: "Illegal operation, swap on stack where top of the stack is a long/double slot.".into() })
+        Err(InstructionError::InvalidState {
+            context:
+                "Illegal operation, swap on stack where top of the stack is a long/double slot."
+                    .into(),
+        })
     }
 }

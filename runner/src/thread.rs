@@ -1,4 +1,8 @@
-use crate::{class::ClassId, class_loader, class_manager::{self, LoadedClass}};
+use crate::{
+    class::ClassId,
+    class_loader,
+    class_manager::{self, LoadedClass},
+};
 
 #[derive(Debug, Clone)]
 pub struct Thread {
@@ -22,7 +26,9 @@ impl Thread {
             };
             let method = class.get_method_by_index(frame.method).unwrap();
             // TODO: Native methods
-            let code = method.get_code().expect("Code attribute not found, probably a native method");
+            let code = method
+                .get_code()
+                .expect("Code attribute not found, probably a native method");
             let instruction = code.instructions[self.pc];
             // TODO: Do something with the instruction
             self.pc += 1;

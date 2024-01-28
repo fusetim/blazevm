@@ -1,10 +1,9 @@
-
-use crate::xconst_i;
-use crate::thread::Thread;
-use crate::class_manager::{ClassManager, LoadedClass};
-use crate::constant_pool::{ConstantPoolEntry};
-use crate::thread::Slot;
 use super::InstructionError;
+use crate::class_manager::{ClassManager, LoadedClass};
+use crate::constant_pool::ConstantPoolEntry;
+use crate::thread::Slot;
+use crate::thread::Thread;
+use crate::xconst_i;
 
 pub fn nop(thread: &mut Thread) -> Result<(), InstructionError> {
     thread.pc += 1;
@@ -12,12 +11,12 @@ pub fn nop(thread: &mut Thread) -> Result<(), InstructionError> {
 }
 
 xconst_i!(iconst_m1, Int, -1);
-xconst_i!(iconst_0,  Int, 0);
-xconst_i!(iconst_1,  Int, 1);
-xconst_i!(iconst_2,  Int, 2);
-xconst_i!(iconst_3,  Int, 3);
-xconst_i!(iconst_4,  Int, 4);
-xconst_i!(iconst_5,  Int, 5);
+xconst_i!(iconst_0, Int, 0);
+xconst_i!(iconst_1, Int, 1);
+xconst_i!(iconst_2, Int, 2);
+xconst_i!(iconst_3, Int, 3);
+xconst_i!(iconst_4, Int, 4);
+xconst_i!(iconst_5, Int, 5);
 
 xconst_i!(lconst_0, Long, 0);
 xconst_i!(lconst_1, Long, 1);
@@ -46,10 +45,14 @@ pub fn sipush(thread: &mut Thread, value: i16) -> Result<(), InstructionError> {
 }
 
 /// `ldc` pushes a constant from the constant pool onto the stack.
-pub fn ldc(thread:  &mut Thread, cm: &mut ClassManager, value: u8) -> Result<(), InstructionError> {
+pub fn ldc(thread: &mut Thread, cm: &mut ClassManager, value: u8) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
-    let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else { return Err(InstructionError::InvalidState { context: "Current class is not loaded!?".into()}) };
+    let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
+        return Err(InstructionError::InvalidState {
+            context: "Current class is not loaded!?".into(),
+        });
+    };
     let constant = class.constant_pool.get(value as usize).unwrap();
     match constant {
         ConstantPoolEntry::IntegerConstant(value) => {
@@ -60,7 +63,9 @@ pub fn ldc(thread:  &mut Thread, cm: &mut ClassManager, value: u8) -> Result<(),
         }
         // TODO: Implement String reference and Class reference.
         _ => {
-            return Err(InstructionError::InvalidState { context: "Invalid constant pool entry".into() });
+            return Err(InstructionError::InvalidState {
+                context: "Invalid constant pool entry".into(),
+            });
         }
     }
     thread.pc += 2;
@@ -68,10 +73,18 @@ pub fn ldc(thread:  &mut Thread, cm: &mut ClassManager, value: u8) -> Result<(),
 }
 
 /// `ldc_w` pushes a constant from the constant pool onto the stack.
-pub fn ldc_w(thread:  &mut Thread, cm: &mut ClassManager, value: u16) -> Result<(), InstructionError> {
+pub fn ldc_w(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    value: u16,
+) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
-    let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else { return Err(InstructionError::InvalidState { context: "Current class is not loaded!?".into()}) };
+    let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
+        return Err(InstructionError::InvalidState {
+            context: "Current class is not loaded!?".into(),
+        });
+    };
     let constant = class.constant_pool.get(value as usize).unwrap();
 
     match constant {
@@ -83,7 +96,9 @@ pub fn ldc_w(thread:  &mut Thread, cm: &mut ClassManager, value: u16) -> Result<
         }
         // TODO: Implement String reference and Class reference.
         _ => {
-            return Err(InstructionError::InvalidState { context: "Invalid constant pool entry".into() });
+            return Err(InstructionError::InvalidState {
+                context: "Invalid constant pool entry".into(),
+            });
         }
     }
     thread.pc += 3;
@@ -91,10 +106,18 @@ pub fn ldc_w(thread:  &mut Thread, cm: &mut ClassManager, value: u16) -> Result<
 }
 
 /// `ldc2_w` pushes a long/double constant from the constant pool onto the stack.
-pub fn ldc2_w(thread:  &mut Thread, cm: &mut ClassManager, value: u16) -> Result<(), InstructionError> {
+pub fn ldc2_w(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    value: u16,
+) -> Result<(), InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
-    let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else { return Err(InstructionError::InvalidState { context: "Current class is not loaded!?".into()}) };
+    let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
+        return Err(InstructionError::InvalidState {
+            context: "Current class is not loaded!?".into(),
+        });
+    };
     let constant = class.constant_pool.get(value as usize).unwrap();
 
     match constant {
@@ -106,7 +129,9 @@ pub fn ldc2_w(thread:  &mut Thread, cm: &mut ClassManager, value: u16) -> Result
         }
         // TODO: Implement dynamic reference.
         _ => {
-            return Err(InstructionError::InvalidState { context: "Invalid constant pool entry".into() });
+            return Err(InstructionError::InvalidState {
+                context: "Invalid constant pool entry".into(),
+            });
         }
     }
     thread.pc += 3;

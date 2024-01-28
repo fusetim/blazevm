@@ -1,7 +1,7 @@
-use crate::thread::Thread;
-use crate::thread::Slot;
 use super::InstructionError;
-use crate::{xadd, xsub, xmul, xdiv, xrem, xneg1, xneg2, xshl, xshr, xand, xor, xxor};
+use crate::thread::Slot;
+use crate::thread::Thread;
+use crate::{xadd, xand, xdiv, xmul, xneg1, xneg2, xor, xrem, xshl, xshr, xsub, xxor};
 
 xadd!(iadd, Int, i32, i32);
 xadd!(ladd, Long, i64, i64);
@@ -59,10 +59,14 @@ pub fn iinc(thread: &mut Thread, index: u8, increment: i8) -> Result<(), Instruc
             thread.pc += 3;
             Ok(())
         } else {
-            return Err(InstructionError::InvalidState { context: "Expected Int".into() });
+            return Err(InstructionError::InvalidState {
+                context: "Expected Int".into(),
+            });
         }
     } else {
-        return Err(InstructionError::InvalidState { context: "Local variable not found".into() });
+        return Err(InstructionError::InvalidState {
+            context: "Local variable not found".into(),
+        });
     }
 }
 
@@ -75,10 +79,14 @@ pub fn wide_iinc(thread: &mut Thread, index: u16, increment: i16) -> Result<(), 
             thread.pc += 5;
             Ok(())
         } else {
-            return Err(InstructionError::InvalidState { context: "Expected Int".into() });
+            return Err(InstructionError::InvalidState {
+                context: "Expected Int".into(),
+            });
         }
     } else {
-        return Err(InstructionError::InvalidState { context: "Local variable not found".into() });
+        return Err(InstructionError::InvalidState {
+            context: "Local variable not found".into(),
+        });
     }
 }
 
@@ -92,15 +100,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(((value1 as $real_ty) + (value2 as $real_ty)) as $final_ty));
+                            frame.operand_stack.push(Slot::$ty(
+                                ((value1 as $real_ty) + (value2 as $real_ty)) as $final_ty,
+                            ));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -117,15 +134,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(((value1 as $real_ty) - (value2 as $real_ty)) as $final_ty));
+                            frame.operand_stack.push(Slot::$ty(
+                                ((value1 as $real_ty) - (value2 as $real_ty)) as $final_ty,
+                            ));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -142,15 +168,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(((value1 as $real_ty) * (value2 as $real_ty)) as $final_ty));
+                            frame.operand_stack.push(Slot::$ty(
+                                ((value1 as $real_ty) * (value2 as $real_ty)) as $final_ty,
+                            ));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -167,15 +202,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(((value1 as $real_ty) / (value2 as $real_ty)) as $final_ty));
+                            frame.operand_stack.push(Slot::$ty(
+                                ((value1 as $real_ty) / (value2 as $real_ty)) as $final_ty,
+                            ));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -192,15 +236,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(((value1 as $real_ty) % (value2 as $real_ty)) as $final_ty));
+                            frame.operand_stack.push(Slot::$ty(
+                                ((value1 as $real_ty) % (value2 as $real_ty)) as $final_ty,
+                            ));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -218,10 +271,14 @@ mod macros {
                     if let Slot::$ty(value) = slot {
                         frame.operand_stack.push(Slot::$ty(-value));
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?}", stringify!($ty)),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -240,15 +297,23 @@ mod macros {
                         match value {
                             0.0 => frame.operand_stack.push(Slot::$ty(-0.0)),
                             -0.0 => frame.operand_stack.push(Slot::$ty(0.0)),
-                            <$real_ty>::INFINITY => frame.operand_stack.push(Slot::$ty(<$real_ty>::NEG_INFINITY)),
-                            <$real_ty>::NEG_INFINITY => frame.operand_stack.push(Slot::$ty(<$real_ty>::INFINITY)),
+                            <$real_ty>::INFINITY => frame
+                                .operand_stack
+                                .push(Slot::$ty(<$real_ty>::NEG_INFINITY)),
+                            <$real_ty>::NEG_INFINITY => {
+                                frame.operand_stack.push(Slot::$ty(<$real_ty>::INFINITY))
+                            }
                             x => frame.operand_stack.push(Slot::$ty(-x)),
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?}", stringify!($ty)),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -265,15 +330,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(value1 << (value2 & 0x1f)));
+                            frame
+                                .operand_stack
+                                .push(Slot::$ty(value1 << (value2 & 0x1f)));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -290,15 +364,24 @@ mod macros {
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
-                            frame.operand_stack.push(Slot::$ty(value1 >> (value2 & 0x1f)));
+                            frame
+                                .operand_stack
+                                .push(Slot::$ty(value1 >> (value2 & 0x1f)));
                         } else {
-                            return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                            return Err(InstructionError::InvalidState {
+                                context: format!("Expected {:?}", stringify!($ty)),
+                            });
                         }
                     } else {
-                        return Err(InstructionError::InvalidState { context: "Operand stack is len 1, expected as least two elements.".into() });
+                        return Err(InstructionError::InvalidState {
+                            context: "Operand stack is len 1, expected as least two elements."
+                                .into(),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty".into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -312,14 +395,21 @@ mod macros {
             /// Bitwise and a value from the operand stack and push the result onto the operand stack.
             pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
-                if let (Some(slot1), Some(slot2)) = (frame.operand_stack.pop(), frame.operand_stack.pop()) {
+                if let (Some(slot1), Some(slot2)) =
+                    (frame.operand_stack.pop(), frame.operand_stack.pop())
+                {
                     if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
                         frame.operand_stack.push(Slot::$ty(value1 & value2));
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?}", stringify!($ty)),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty or len 1, expected as least two elements.".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty or len 1, expected as least two elements."
+                            .into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -333,14 +423,21 @@ mod macros {
             /// Bitwise or a value from the operand stack and push the result onto the operand stack.
             pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
-                if let (Some(slot1), Some(slot2)) = (frame.operand_stack.pop(), frame.operand_stack.pop()) {
+                if let (Some(slot1), Some(slot2)) =
+                    (frame.operand_stack.pop(), frame.operand_stack.pop())
+                {
                     if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
                         frame.operand_stack.push(Slot::$ty(value1 | value2));
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?}", stringify!($ty)),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty or len 1, expected as least two elements.".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty or len 1, expected as least two elements."
+                            .into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
@@ -354,19 +451,25 @@ mod macros {
             /// Bitwise xor a value from the operand stack and push the result onto the operand stack.
             pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
-                if let (Some(slot1), Some(slot2)) = (frame.operand_stack.pop(), frame.operand_stack.pop()) {
+                if let (Some(slot1), Some(slot2)) =
+                    (frame.operand_stack.pop(), frame.operand_stack.pop())
+                {
                     if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
                         frame.operand_stack.push(Slot::$ty(value1 ^ value2));
                     } else {
-                        return Err(InstructionError::InvalidState { context: format!("Expected {:?}", stringify!($ty)) });
+                        return Err(InstructionError::InvalidState {
+                            context: format!("Expected {:?}", stringify!($ty)),
+                        });
                     }
                 } else {
-                    return Err(InstructionError::InvalidState { context: "Operand stack is empty or len 1, expected as least two elements.".into() });
+                    return Err(InstructionError::InvalidState {
+                        context: "Operand stack is empty or len 1, expected as least two elements."
+                            .into(),
+                    });
                 }
                 thread.pc += 1;
                 Ok(())
             }
         };
     }
-
 }

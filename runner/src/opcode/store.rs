@@ -1,7 +1,7 @@
-use crate::thread::Thread;
-use crate::class_manager::{ClassManager};
-use crate::thread::Slot;
 use super::InstructionError;
+use crate::class_manager::ClassManager;
+use crate::thread::Slot;
+use crate::thread::Thread;
 use crate::{xstore, xstore_n};
 
 xstore!(istore, Int);
@@ -32,7 +32,6 @@ xstore_n!(dstore_3, Double, 3);
 
 // TODO: implement astore_n
 // TODO: implement array store instructions
-
 
 mod macros {
     #[macro_export]

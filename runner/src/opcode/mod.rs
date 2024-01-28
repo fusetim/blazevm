@@ -1,19 +1,19 @@
-use std::io::Read;
-use snafu::Snafu;
-use crate::{opcode_with_operand1, opcode_with_operand2};
 use crate::class_manager::ClassManager;
 use crate::thread::Thread;
+use crate::{opcode_with_operand1, opcode_with_operand2};
+use snafu::Snafu;
+use std::io::Read;
 
-mod constant;
-mod load;
-mod store;
-mod stack;
-mod math;
-mod conversion;
 mod comparison;
+mod constant;
 mod control;
-mod reference;
+mod conversion;
 mod extended;
+mod load;
+mod math;
+mod reference;
+mod stack;
+mod store;
 
 #[derive(Debug, Clone)]
 pub enum Opcode {
@@ -448,12 +448,12 @@ pub fn read_instruction(mut reader: impl Read) -> Result<(usize, Opcode), Instru
             let mut buf = [0u8; 4];
             reader.read_exact(&mut buf)?;
             Ok((5, Opcode::GotoW(i32::from_be_bytes(buf))))
-        },
+        }
         0xc9 => {
             let mut buf = [0u8; 4];
             reader.read_exact(&mut buf)?;
             Ok((5, Opcode::JsrW(i32::from_be_bytes(buf))))
-        },
+        }
         0xca => Ok((1, Opcode::Breakpoint)),
         0xfe => Ok((1, Opcode::ImpDep1)),
         0xff => Ok((1, Opcode::ImpDep2)),
@@ -462,7 +462,11 @@ pub fn read_instruction(mut reader: impl Read) -> Result<(usize, Opcode), Instru
 }
 
 impl Opcode {
-    pub fn execute(&self, thread: &mut Thread, cm: &mut ClassManager) -> Result<(), InstructionError>{
+    pub fn execute(
+        &self,
+        thread: &mut Thread,
+        cm: &mut ClassManager,
+    ) -> Result<(), InstructionError> {
         match self {
             Opcode::Nop => constant::nop(thread),
             // Opcode::AConstNull
@@ -591,7 +595,25 @@ impl Opcode {
             Opcode::I2B => conversion::i2b(thread),
             Opcode::I2C => conversion::i2c(thread),
             Opcode::I2S => conversion::i2s(thread),
-            x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() })
+            Opcode::LCmp => comparison::lcmp(thread),
+            Opcode::FCmpL => comparison::fcmpl(thread),
+            Opcode::FCmpG => comparison::fcmpg(thread),
+            Opcode::DCmpL => comparison::dcmpl(thread),
+            Opcode::DCmpG => comparison::dcmpg(thread),
+            Opcode::IfEq(value) => comparison::ifeq(thread, *value),
+            Opcode::IfNe(value) => comparison::ifne(thread, *value),
+            Opcode::IfLt(value) => comparison::iflt(thread, *value),
+            Opcode::IfGe(value) => comparison::ifge(thread, *value),
+            Opcode::IfGt(value) => comparison::ifgt(thread, *value),
+            Opcode::IfLe(value) => comparison::ifle(thread, *value),
+            Opcode::IfICmpEq(value) => comparison::if_icmpeq(thread, *value),
+            Opcode::IfICmpNe(value) => comparison::if_icmpne(thread, *value),
+            Opcode::IfICmpLt(value) => comparison::if_icmplt(thread, *value),
+            Opcode::IfICmpGe(value) => comparison::if_icmpge(thread, *value),
+            Opcode::IfICmpGt(value) => comparison::if_icmpgt(thread, *value),
+            Opcode::IfICmpLe(value) => comparison::if_icmple(thread, *value),
+            // TODO: Implement IfACmpEq and IfACmpNe
+            x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
         }
     }
 }
@@ -617,44 +639,34 @@ mod macros {
 
     #[macro_export]
     macro_rules! opcode_with_operand1 {
-        ($reader:expr, $name:ident) => {
-            {
-                let mut buf = [0u8; 1];
-                $reader.read_exact(&mut buf)?;
-                Ok((2, Opcode::$name(buf[0])))
-            }
-        };
-        ($reader:expr, $name:ident, $ty:ty) => {
-            {
-                let mut buf = [0u8; 1];
-                $reader.read_exact(&mut buf)?;
-                Ok((2, Opcode::$name(<$ty>::from_be_bytes(buf))))
-            }
-        }
+        ($reader:expr, $name:ident) => {{
+            let mut buf = [0u8; 1];
+            $reader.read_exact(&mut buf)?;
+            Ok((2, Opcode::$name(buf[0])))
+        }};
+        ($reader:expr, $name:ident, $ty:ty) => {{
+            let mut buf = [0u8; 1];
+            $reader.read_exact(&mut buf)?;
+            Ok((2, Opcode::$name(<$ty>::from_be_bytes(buf))))
+        }};
     }
 
     #[macro_export]
     macro_rules! opcode_with_operand2 {
-        ($reader:expr, $name:ident) => {
-            {
-                let mut buf = [0u8; 2];
-                $reader.read_exact(&mut buf)?;
-                Ok((3, Opcode::$name(u16::from_be_bytes(buf))))
-            }
-        };
-        ($reader:expr, $name:ident, $ty:ty) => {
-            {
-                let mut buf = [0u8; 2];
-                $reader.read_exact(&mut buf)?;
-                Ok((3, Opcode::$name(<$ty>::from_be_bytes(buf))))
-            }
-        };
-        ($reader:expr, $name:ident, $ty1:ty, $ty2:ty) => {
-            {
-                let mut buf = [0u8; 2];
-                $reader.read_exact(&mut buf)?;
-                Ok((3, Opcode::$name(buf[0] as $ty1, buf[1] as $ty2)))
-            }
-        }
+        ($reader:expr, $name:ident) => {{
+            let mut buf = [0u8; 2];
+            $reader.read_exact(&mut buf)?;
+            Ok((3, Opcode::$name(u16::from_be_bytes(buf))))
+        }};
+        ($reader:expr, $name:ident, $ty:ty) => {{
+            let mut buf = [0u8; 2];
+            $reader.read_exact(&mut buf)?;
+            Ok((3, Opcode::$name(<$ty>::from_be_bytes(buf))))
+        }};
+        ($reader:expr, $name:ident, $ty1:ty, $ty2:ty) => {{
+            let mut buf = [0u8; 2];
+            $reader.read_exact(&mut buf)?;
+            Ok((3, Opcode::$name(buf[0] as $ty1, buf[1] as $ty2)))
+        }};
     }
 }
