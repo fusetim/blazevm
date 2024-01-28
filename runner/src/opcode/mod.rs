@@ -613,6 +613,12 @@ impl Opcode {
             Opcode::IfICmpGt(value) => comparison::if_icmpgt(thread, *value),
             Opcode::IfICmpLe(value) => comparison::if_icmple(thread, *value),
             // TODO: Implement IfACmpEq and IfACmpNe
+            Opcode::Goto(value) => control::goto(thread, *value),
+            Opcode::Jsr(value) => control::jsr(thread, *value),
+            Opcode::Ret(value) => control::ret(thread, *value),
+            // TODO: Implement tableswitch and lookupswitch
+            // TODO: Implement ireturn, lreturn, freturn, dreturn, areturn
+            Opcode::Return => control::vreturn(thread),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
         }
     }

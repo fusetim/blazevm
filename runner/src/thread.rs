@@ -62,17 +62,22 @@ pub struct Frame {
 
 #[derive(Debug, Clone)]
 pub enum Slot {
+    /// Like the constant pool, long and double entries take two slots.
+    /// Hence the stucture representing the 2nd part of such entry.
+    Tombsone,
     Int(i32),
     Long(i64),
     Float(f32),
     Double(f64),
+    ReturnAddress(u32),
     // Object(ClassId),
 }
 
 impl Slot {
     pub fn size(&self) -> usize {
         match self {
-            Slot::Int(_) | Slot::Float(_) => 1,
+            Slot::Tombsone => 0,
+            Slot::Int(_) | Slot::Float(_) | Slot::ReturnAddress(_) => 1,
             Slot::Long(_) | Slot::Double(_) => 2,
         }
     }
