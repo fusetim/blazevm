@@ -617,7 +617,11 @@ impl Opcode {
             Opcode::Jsr(value) => control::jsr(thread, *value),
             Opcode::Ret(value) => control::ret(thread, *value),
             // TODO: Implement tableswitch and lookupswitch
-            // TODO: Implement ireturn, lreturn, freturn, dreturn, areturn
+            Opcode::IReturn => control::ireturn(thread),
+            Opcode::LReturn => control::lreturn(thread),
+            Opcode::FReturn => control::freturn(thread),
+            Opcode::DReturn => control::dreturn(thread),
+            // TODO: Implement areturn
             Opcode::Return => control::vreturn(thread),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
         }

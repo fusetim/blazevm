@@ -72,14 +72,18 @@ pub enum Slot {
     Float(f32),
     Double(f64),
     ReturnAddress(u32),
+    /// This item is used to know the new instruction when returning from a method.
+    ///
+    /// It is an internal implementation detail and should not be used by the user.
+    InvokationReturnAddress(u32),
     // Object(ClassId),
 }
 
 impl Slot {
     pub fn size(&self) -> usize {
         match self {
-            Slot::Tombsone => 0,
-            Slot::Int(_) | Slot::Float(_) | Slot::ReturnAddress(_) => 1,
+            Slot::Tombstone => 0,
+            Slot::Int(_) | Slot::Float(_) | Slot::ReturnAddress(_) | Slot::InvokationReturnAddress(_) => 1,
             Slot::Long(_) | Slot::Double(_) => 2,
         }
     }

@@ -1,6 +1,7 @@
 use super::InstructionError;
 use crate::thread::Slot;
 use crate::thread::Thread;
+use crate::{xreturn};
 
 /// `goto` jumps to another instruction.
 pub fn goto(thread: &mut Thread, offset: i16) -> Result<(), InstructionError> {
@@ -58,6 +59,48 @@ pub fn ret(thread: &mut Thread, index: u8) -> Result<(), InstructionError> {
 pub fn vreturn(thread: &mut Thread) -> Result<(), InstructionError> {
     thread.pop_frame();
     /// TODO: implement monitor strategy for synchronized methods
-    /// TODO: We might need to reset the pc to the return address of the previous frame?
+    let frame = thread.current_frame_mut().unwrap();
+    let Some(Slot::InvokationReturnAddress(pc)) = frame.operand_stack.pop() else {
+        return Err(InstructionError::InvalidState {
+            context: "Expected invokation return address on the operand stack".into(),
+        });
+    };
+    thread.pc = pc as usize;
     Ok(())
+}
+
+// TODO: ireturn actually checks the method type to cast properly the returned value to the correct type
+// (bool, char, byte, short, int)
+xreturn!(ireturn, Int);
+xreturn!(lreturn, Long);
+xreturn!(freturn, Float);
+xreturn!(dreturn, Double);
+// TODO: implement areturn
+
+mod macros {
+    #[macro_export]
+    macro_rules! xreturn {
+        ($name:ident, $ty:ident) => {
+            /// Return a value from a method.
+            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+                let prev_frame = thread.pop_frame().unwrap();
+                /// TODO: implement monitor strategy for synchronized methods
+                if let Some(Slot::$ty(value)) = prev_frame.operand_stack.last() {
+                    let frame = thread.current_frame_mut().unwrap();
+                    let Some(Slot::InvokationReturnAddress(pc)) = frame.operand_stack.pop() else {
+                        return Err(InstructionError::InvalidState {
+                            context: "Expected invokation return address on the operand stack".into(),
+                        });
+                    };
+                    frame.operand_stack.push(Slot::$ty(*value));
+                    thread.pc = pc as usize;
+                    Ok(())
+                } else {
+                    return Err(InstructionError::InvalidState {
+                        context: format!("Expected {:?} on the operand stack", stringify!($ty)),
+                    });
+                }
+            }
+        };
+    }
 }
