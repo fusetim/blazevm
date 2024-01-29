@@ -64,7 +64,9 @@ pub struct Frame {
 pub enum Slot {
     /// Like the constant pool, long and double entries take two slots.
     /// Hence the stucture representing the 2nd part of such entry.
-    Tombsone,
+    ///
+    /// Note: This only applies to the local variables, not the operand stack.
+    Tombstone,
     Int(i32),
     Long(i64),
     Float(f32),
