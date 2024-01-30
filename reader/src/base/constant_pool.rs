@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use super::{U1, U2, U4};
-use binrw::{BinRead, BinReaderExt, BinResult};
+use binrw::{BinRead, BinResult};
 use cesu8::from_java_cesu8;
 
 /// Model of the Constant Pool

@@ -114,7 +114,9 @@ pub enum ClassLoadingError {
 
     #[snafu(context(false))]
     #[snafu(display("Bad descriptor; {}", source))]
-    BadDescriptor { source: reader::descriptor::DescriptorError },
+    BadDescriptor {
+        source: reader::descriptor::DescriptorError,
+    },
 
     #[snafu(display("Unknown error"))]
     Unknown,

@@ -1,4 +1,4 @@
-use std::{cell::OnceCell, collections::HashMap, ops::Deref, sync::Once};
+use std::{cell::OnceCell, collections::HashMap};
 
 use reader::base::ClassFile;
 

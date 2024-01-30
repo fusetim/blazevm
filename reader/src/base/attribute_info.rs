@@ -1,5 +1,5 @@
-use super::{stack_frame::parse_stack_map_frame, ConstantPool, StackMapFrame, U1, U2, U4};
-use binrw::{binrw, BinRead, BinReaderExt, BinResult};
+use super::{stack_frame::parse_stack_map_frame, StackMapFrame, U1, U2, U4};
+use binrw::{BinRead, BinResult};
 use flagset::{flags, FlagSet};
 
 #[derive(BinRead)]

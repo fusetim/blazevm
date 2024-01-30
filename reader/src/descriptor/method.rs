@@ -1,6 +1,5 @@
-use nom::{IResult, branch::alt, bytes::complete::tag, combinator::map};
-use super::class::ClassName;
 use super::field::FieldType;
+use nom::{branch::alt, bytes::complete::tag, combinator::map, IResult};
 
 /// Method descriptor representation
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -13,7 +12,13 @@ impl MethodDescriptor {
     pub fn parse(input: &str) -> IResult<&str, Self> {
         let (input, parameters) = parse_parameters(input)?;
         let (input, return_type) = parse_return_type(input)?;
-        Ok((input, Self { parameters, return_type }))
+        Ok((
+            input,
+            Self {
+                parameters,
+                return_type,
+            },
+        ))
     }
 }
 

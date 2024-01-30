@@ -1,5 +1,5 @@
-use super::{U1, U2, U4};
-use binrw::{args, binrw, BinRead, BinReaderExt, BinResult, Error as BinError};
+use super::{U1, U2};
+use binrw::{args, BinRead, BinReaderExt, BinResult, Error as BinError};
 
 /// Entry of the stack map table of a [StackMapTableAttribute].
 ///

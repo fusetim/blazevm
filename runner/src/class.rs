@@ -7,13 +7,16 @@ use crate::{
     constant_pool::{ConstantPool, ConstantPoolError},
 };
 use dumpster::Collectable;
-use reader::{base::{
-    attribute_info::{CodeAttribute, ConstantValueAttribute},
-    classfile,
-    constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo,
-    AttributeInfo, ConstantPool as ClassfileConstantPool,
-}, descriptor::{self, FieldDescriptor, MethodDescriptor}};
 use reader::BinRead;
+use reader::{
+    base::{
+        attribute_info::{CodeAttribute, ConstantValueAttribute},
+        classfile,
+        constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo,
+        AttributeInfo, ConstantPool as ClassfileConstantPool,
+    },
+    descriptor::{self, FieldDescriptor, MethodDescriptor},
+};
 
 /// Runtime identifier for a class.
 ///
@@ -104,7 +107,7 @@ impl Field {
             })?;
 
         let descriptor = descriptor::parse_field_descriptor(&descriptor.to_string())?;
-        
+
         let attributes: Vec<FieldAttribute> = fi
             .attributes
             .iter()
@@ -165,7 +168,7 @@ impl Method {
             })?;
 
         let descriptor = descriptor::parse_method_descriptor(&descriptor.to_string())?;
-        
+
         let attributes: Vec<MethodAttribute> = mi
             .attributes
             .iter()

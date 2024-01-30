@@ -1,7 +1,7 @@
 use crate::class_manager::ClassManager;
 use crate::thread::Thread;
 use crate::{opcode_with_operand1, opcode_with_operand2};
-use binrw::{BinRead, BinReaderExt, BinResult};
+use binrw::{BinRead, BinReaderExt};
 use reader::base::ParsingError;
 use snafu::Snafu;
 use std::io::{Read, Seek};

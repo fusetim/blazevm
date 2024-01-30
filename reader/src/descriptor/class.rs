@@ -1,4 +1,4 @@
-use nom::{branch::alt, bytes::complete::tag, character::complete::none_of, combinator::map, multi::many1, IResult};
+use nom::{bytes::complete::tag, character::complete::none_of, multi::many1, IResult};
 
 /// Classname representation
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -17,11 +17,19 @@ impl ClassName {
     }
 
     pub fn as_binary_name(&self) -> String {
-        self.parts.iter().map(|part| part.as_str()).collect::<Vec<_>>().join("/")
+        self.parts
+            .iter()
+            .map(|part| part.as_str())
+            .collect::<Vec<_>>()
+            .join("/")
     }
 
     pub fn as_source_name(&self) -> String {
-        self.parts.iter().map(|part| part.as_str()).collect::<Vec<_>>().join(".")
+        self.parts
+            .iter()
+            .map(|part| part.as_str())
+            .collect::<Vec<_>>()
+            .join(".")
     }
 }
 
@@ -33,7 +41,7 @@ impl UnqualifiedName {
     pub fn new(name: &str) -> Self {
         Self(name.into())
     }
-    
+
     pub fn parse(input: &str) -> IResult<&str, Self> {
         let (input, name) = many1(none_of("./[;"))(input)?;
         Ok((input, Self(name.into_iter().collect())))

@@ -1,5 +1,5 @@
-use nom::{IResult, branch::alt, bytes::complete::tag, combinator::map};
 use super::class::ClassName;
+use nom::{branch::alt, bytes::complete::tag, combinator::map, IResult};
 
 /// Field descriptor representation
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -114,13 +114,20 @@ pub struct ArrayType {
 
 impl ArrayType {
     pub fn new(item: FieldType) -> Self {
-        Self { item: Box::new(item) }
+        Self {
+            item: Box::new(item),
+        }
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
         let (input, _) = tag("[")(input)?;
         let (input, item) = FieldType::parse_field_type(input)?;
-        Ok((input, Self { item: Box::new(item) }))
+        Ok((
+            input,
+            Self {
+                item: Box::new(item),
+            },
+        ))
     }
 
     pub fn item(&self) -> &FieldType {

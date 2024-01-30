@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
-use super::{AttributeInfo, ConstantPool, DecodingError, U1, U2, U4};
-use binrw::{binrw, BinRead, BinReaderExt};
+use super::{AttributeInfo, ConstantPool, DecodingError, U2, U4};
+use binrw::BinRead;
 use dumpster::Collectable;
 use flagset::{flags, FlagSet};
 

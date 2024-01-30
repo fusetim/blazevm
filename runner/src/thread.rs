@@ -1,6 +1,5 @@
 use crate::{
     class::ClassId,
-    class_loader,
     class_manager::{self, LoadedClass},
 };
 

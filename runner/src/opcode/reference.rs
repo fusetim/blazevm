@@ -1,7 +1,6 @@
 use super::InstructionError;
 use crate::class_manager::{ClassManager, LoadedClass};
 use crate::constant_pool::ConstantPoolEntry;
-use crate::slot::Slot;
 use crate::thread::Thread;
 
 /// `getstatic` gets a static field value of a class, where the field is identified
