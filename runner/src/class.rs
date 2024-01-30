@@ -1,4 +1,5 @@
-use std::io::Cursor;
+use crate::slot::Slot;
+use std::{cell::OnceCell, io::Cursor};
 
 use crate::{
     class_loader::ClassLoadingError,
@@ -35,6 +36,11 @@ pub struct Class {
     // pub flags: ClassAccessFlags,
     pub fields: Vec<Field>,
     pub methods: Vec<Method>,
+    /// Whether the class has been initialized.
+    ///
+    /// Basically ensure the `<clinit>` method has been executed, or not.
+    /// This is particularly useful for ensuring final static fields are set only once.
+    pub initialized: OnceCell<bool>,
 }
 
 impl Class {
@@ -46,6 +52,10 @@ impl Class {
 
     pub fn get_field(&self, name: &str) -> Option<&Field> {
         self.fields.iter().find(|field| field.name == name)
+    }
+
+    pub fn get_mut_field(&mut self, name: &str) -> Option<&mut Field> {
+        self.fields.iter_mut().find(|field| field.name == name)
     }
 
     pub fn get_field_by_index(&self, index: usize) -> Option<&Field> {
@@ -72,6 +82,7 @@ pub struct Field {
     pub name: String,
     pub descriptor: String,
     // pub flags: FieldAccessFlags,
+    pub value: Slot,
     pub attributes: Vec<FieldAttribute>,
 }
 
@@ -99,11 +110,29 @@ impl Field {
             .into_iter()
             .flatten()
             .collect();
+
+        let mut value = Slot::Tombstone;
+        if let Some(cv) = attributes
+            .iter()
+            .find(|x| matches!(x, &&FieldAttribute::ConstantValue { .. }))
+        {
+            if let FieldAttribute::ConstantValue { value: cv } = cv {
+                value = cv.clone().into();
+            }
+        }
+
         Ok(Self {
             name: name.to_string(),
+            value,
             descriptor: descriptor.to_string(),
             attributes,
         })
+    }
+
+    /// Get the value of the field.
+    pub fn get_value(&self) -> Option<&Slot> {
+        // TODO: Check if the field is static
+        Some(&self.value)
     }
 }
 

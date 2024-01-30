@@ -1,10 +1,10 @@
 use crate::class_manager::ClassManager;
 use crate::thread::Thread;
 use crate::{opcode_with_operand1, opcode_with_operand2};
+use binrw::{BinRead, BinReaderExt, BinResult};
 use reader::base::ParsingError;
 use snafu::Snafu;
 use std::io::{Read, Seek};
-use binrw::{BinRead, BinReaderExt, BinResult};
 
 mod comparison;
 mod constant;
@@ -424,16 +424,34 @@ pub fn read_instruction(mut reader: impl Read + Seek) -> Result<(usize, Opcode),
             let pos = reader.stream_position()?;
             let padding = (4 - (pos % 4)) % 4;
             reader.seek(std::io::SeekFrom::Current(padding as i64))?;
-            let ts: TableSwitch = reader.read_be().map_err(|e| InstructionError::CorruptedOpcode { opcode: 0xaa, source: e })?;
-            Ok((1 + (padding as usize) + (4 * 3) + 4 * ts.jump_offsets.len(), Opcode::TableSwitch(ts)))
-        },
+            let ts: TableSwitch =
+                reader
+                    .read_be()
+                    .map_err(|e| InstructionError::CorruptedOpcode {
+                        opcode: 0xaa,
+                        source: e,
+                    })?;
+            Ok((
+                1 + (padding as usize) + (4 * 3) + 4 * ts.jump_offsets.len(),
+                Opcode::TableSwitch(ts),
+            ))
+        }
         0xab => {
             // lookupswitch
             let pos = reader.stream_position()?;
             let padding = (4 - (pos % 4)) % 4;
             reader.seek(std::io::SeekFrom::Current(padding as i64))?;
-            let ls: LookupSwitch = reader.read_be().map_err(|e| InstructionError::CorruptedOpcode { opcode: 0xab, source: e })?;
-            Ok((1 + (padding as usize) + (4 * 2) + 8 * ls.match_offsets.len(), Opcode::LookupSwitch(ls)))
+            let ls: LookupSwitch =
+                reader
+                    .read_be()
+                    .map_err(|e| InstructionError::CorruptedOpcode {
+                        opcode: 0xab,
+                        source: e,
+                    })?;
+            Ok((
+                1 + (padding as usize) + (4 * 2) + 8 * ls.match_offsets.len(),
+                Opcode::LookupSwitch(ls),
+            ))
         }
         0xac => Ok((1, Opcode::IReturn)),
         0xad => Ok((1, Opcode::LReturn)),

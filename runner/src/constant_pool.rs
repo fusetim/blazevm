@@ -32,6 +32,14 @@ impl ConstantPool {
         self.entries.get(*map)
     }
 
+    pub fn get_field_ref(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        let entry = self.get(index)?;
+        match entry {
+            ConstantPoolEntry::FieldReference { .. } => Some(entry),
+            _ => None,
+        }
+    }
+
     fn append(&mut self, entry: ConstantPoolEntry) {
         self.entries.push(entry)
     }

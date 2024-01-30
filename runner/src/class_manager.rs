@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Deref};
+use std::{cell::OnceCell, collections::HashMap, ops::Deref, sync::Once};
 
 use reader::base::ClassFile;
 
@@ -103,7 +103,9 @@ impl ClassManager {
                                 constant_pool: loading.constant_pool.clone(),
                                 fields: loading.fields.clone(),
                                 methods: loading.methods.clone(),
+                                initialized: OnceCell::new(),
                             };
+                            class.initialized.set(false).unwrap();
                             let loaded_class = LoadedClass::Loaded(class);
 
                             // Update the class manager with the fully loaded class.
