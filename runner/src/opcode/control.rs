@@ -1,4 +1,6 @@
 use super::InstructionError;
+use super::LookupSwitch;
+use super::TableSwitch;
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::{xreturn};
@@ -53,7 +55,45 @@ pub fn ret(thread: &mut Thread, index: u8) -> Result<(), InstructionError> {
     Ok(())
 }
 
-// TODO: implement tableswitch, lookupswitch
+/// `tableswitch` accesses jump table by index and jumps.
+pub fn tableswitch(thread: &mut Thread, table: &TableSwitch) -> Result<(), InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let index = frame.operand_stack.pop().unwrap();
+    let offset = match index {
+        Slot::Int(index) => {
+            if index < table.low || index > table.high {
+                table.default
+            } else {
+                table.jump_offsets[(index - table.low) as usize]
+            }
+        }
+        _ => return Err(InstructionError::InvalidState {
+            context: "Expected int on the operand stack".into(),
+        }),
+    };
+    thread.pc = (thread.pc as i32 + offset as i32) as usize;
+    Ok(())
+}
+
+/// `lookupswitch` accesses jump table by key match and jumps.
+pub fn lookupswitch(thread: &mut Thread, table: &LookupSwitch) -> Result<(), InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let key = frame.operand_stack.pop().unwrap();
+    let offset = match key {
+        Slot::Int(key) => {
+            if let Ok(index) = table.match_offsets.binary_search_by_key(&key, |(k, _)| *k) {
+                table.match_offsets[index].1
+            } else {
+                table.default
+            }
+        }
+        _ => return Err(InstructionError::InvalidState {
+            context: "Expected int on the operand stack".into(),
+        }),
+    };
+    thread.pc = (thread.pc as i32 + offset as i32) as usize;
+    Ok(())
+}
 
 /// `return` returns void from a method.
 pub fn vreturn(thread: &mut Thread) -> Result<(), InstructionError> {

@@ -1,8 +1,10 @@
 use crate::class_manager::ClassManager;
 use crate::thread::Thread;
 use crate::{opcode_with_operand1, opcode_with_operand2};
+use reader::base::ParsingError;
 use snafu::Snafu;
-use std::io::Read;
+use std::io::{Read, Seek};
+use binrw::{BinRead, BinReaderExt, BinResult};
 
 mod comparison;
 mod constant;
@@ -187,17 +189,8 @@ pub enum Opcode {
     Goto(i16),
     Jsr(i16),
     Ret(u8),
-    TableSwitch {
-        default: i32,
-        low: i32,
-        high: i32,
-        jump_offsets: Vec<i32>,
-    },
-    LookupSwitch {
-        default: i32,
-        npairs: i32,
-        match_offsets: Vec<(i32, i32)>,
-    },
+    TableSwitch(TableSwitch),
+    LookupSwitch(LookupSwitch),
     IReturn,
     LReturn,
     FReturn,
@@ -233,7 +226,26 @@ pub enum Opcode {
     ImpDep2,
 }
 
-pub fn read_instruction(mut reader: impl Read) -> Result<(usize, Opcode), InstructionError> {
+#[derive(Debug, Clone, BinRead)]
+#[br(big)]
+pub struct TableSwitch {
+    default: i32,
+    low: i32,
+    high: i32,
+    #[br(count = high - low + 1)]
+    jump_offsets: Vec<i32>,
+}
+
+#[derive(Debug, Clone, BinRead)]
+#[br(big)]
+pub struct LookupSwitch {
+    default: i32,
+    npairs: i32,
+    #[br(count = npairs)]
+    match_offsets: Vec<(i32, i32)>,
+}
+
+pub fn read_instruction(mut reader: impl Read + Seek) -> Result<(usize, Opcode), InstructionError> {
     let mut buf = [0u8; 1];
     reader.read_exact(&mut buf)?;
     match buf[0] {
@@ -407,8 +419,22 @@ pub fn read_instruction(mut reader: impl Read) -> Result<(usize, Opcode), Instru
         0xa7 => opcode_with_operand2!(reader, Goto, i16),
         0xa8 => opcode_with_operand2!(reader, Jsr, i16),
         0xa9 => opcode_with_operand1!(reader, Ret),
-        // TODO: 0xaa - tableswitch
-        // TODO: 0xab - lookupswitch
+        0xaa => {
+            // tableswitch
+            let pos = reader.stream_position()?;
+            let padding = (4 - (pos % 4)) % 4;
+            reader.seek(std::io::SeekFrom::Current(padding as i64))?;
+            let ts: TableSwitch = reader.read_be().map_err(|e| InstructionError::CorruptedOpcode { opcode: 0xaa, source: e })?;
+            Ok((1 + (padding as usize) + (4 * 3) + 4 * ts.jump_offsets.len(), Opcode::TableSwitch(ts)))
+        },
+        0xab => {
+            // lookupswitch
+            let pos = reader.stream_position()?;
+            let padding = (4 - (pos % 4)) % 4;
+            reader.seek(std::io::SeekFrom::Current(padding as i64))?;
+            let ls: LookupSwitch = reader.read_be().map_err(|e| InstructionError::CorruptedOpcode { opcode: 0xab, source: e })?;
+            Ok((1 + (padding as usize) + (4 * 2) + 8 * ls.match_offsets.len(), Opcode::LookupSwitch(ls)))
+        }
         0xac => Ok((1, Opcode::IReturn)),
         0xad => Ok((1, Opcode::LReturn)),
         0xae => Ok((1, Opcode::FReturn)),
@@ -616,7 +642,8 @@ impl Opcode {
             Opcode::Goto(value) => control::goto(thread, *value),
             Opcode::Jsr(value) => control::jsr(thread, *value),
             Opcode::Ret(value) => control::ret(thread, *value),
-            // TODO: Implement tableswitch and lookupswitch
+            Opcode::TableSwitch(ts) => control::tableswitch(thread, ts),
+            Opcode::LookupSwitch(ls) => control::lookupswitch(thread, ls),
             Opcode::IReturn => control::ireturn(thread),
             Opcode::LReturn => control::lreturn(thread),
             Opcode::FReturn => control::freturn(thread),
@@ -642,6 +669,9 @@ pub enum InstructionError {
 
     #[snafu(display("Invalid opcode: {}", opcode))]
     InvalidOpcode { opcode: u8 },
+
+    #[snafu(display("Corrupted opcode: {}, context: {:?}", opcode, source))]
+    CorruptedOpcode { opcode: u8, source: ParsingError },
 }
 
 #[macro_use]
