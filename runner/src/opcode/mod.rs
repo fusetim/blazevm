@@ -668,6 +668,8 @@ impl Opcode {
             Opcode::DReturn => control::dreturn(thread),
             // TODO: Implement areturn
             Opcode::Return => control::vreturn(thread),
+            Opcode::GetStatic(index) => reference::getstatic(thread, cm, *index),
+            Opcode::PutStatic(index) => reference::putstatic(thread, cm, *index),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
         }
     }

@@ -7,12 +7,12 @@ use crate::{
     constant_pool::{ConstantPool, ConstantPoolError},
 };
 use dumpster::Collectable;
-use reader::base::{
+use reader::{base::{
     attribute_info::{CodeAttribute, ConstantValueAttribute},
     classfile,
     constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo,
     AttributeInfo, ConstantPool as ClassfileConstantPool,
-};
+}, descriptor::{self, FieldDescriptor, MethodDescriptor}};
 use reader::BinRead;
 
 /// Runtime identifier for a class.
@@ -25,7 +25,7 @@ pub struct ClassId(pub usize);
 /// Runtime representation of a class.
 ///
 /// This is the main data structure used to represent a class at runtime.
-#[derive(Debug, Collectable, Clone)]
+#[derive(Debug, Clone)]
 pub struct Class {
     pub id: ClassId,
     pub name: String,
@@ -44,10 +44,10 @@ pub struct Class {
 }
 
 impl Class {
-    pub fn get_method(&self, name: &str, descriptor: &str) -> Option<&Method> {
+    pub fn get_method(&self, name: &str, descriptor: &MethodDescriptor) -> Option<&Method> {
         self.methods
             .iter()
-            .find(|method| method.name == name && method.descriptor == descriptor)
+            .find(|method| method.name == name && method.descriptor == *descriptor)
     }
 
     pub fn get_field(&self, name: &str) -> Option<&Field> {
@@ -66,10 +66,10 @@ impl Class {
         self.methods.get(index)
     }
 
-    pub fn index_of_method(&self, name: &str, descriptor: &str) -> Option<usize> {
+    pub fn index_of_method(&self, name: &str, descriptor: &MethodDescriptor) -> Option<usize> {
         self.methods
             .iter()
-            .position(|method| method.name == name && method.descriptor == descriptor)
+            .position(|method| method.name == name && method.descriptor == *descriptor)
     }
 
     pub fn index_of_field(&self, name: &str) -> Option<usize> {
@@ -77,10 +77,10 @@ impl Class {
     }
 }
 
-#[derive(Debug, Collectable, Clone)]
+#[derive(Debug, Clone)]
 pub struct Field {
     pub name: String,
-    pub descriptor: String,
+    pub descriptor: FieldDescriptor,
     // pub flags: FieldAccessFlags,
     pub value: Slot,
     pub attributes: Vec<FieldAttribute>,
@@ -102,6 +102,9 @@ impl Field {
             .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
                 index: fi.descriptor_index as usize,
             })?;
+
+        let descriptor = descriptor::parse_field_descriptor(&descriptor.to_string())?;
+        
         let attributes: Vec<FieldAttribute> = fi
             .attributes
             .iter()
@@ -124,7 +127,7 @@ impl Field {
         Ok(Self {
             name: name.to_string(),
             value,
-            descriptor: descriptor.to_string(),
+            descriptor: descriptor,
             attributes,
         })
     }
@@ -136,10 +139,10 @@ impl Field {
     }
 }
 
-#[derive(Debug, Collectable, Clone)]
+#[derive(Debug, Clone)]
 pub struct Method {
     pub name: String,
-    pub descriptor: String,
+    pub descriptor: MethodDescriptor,
     // pub flags: MethodAccessFlags,
     pub attributes: Vec<MethodAttribute>,
 }
@@ -160,6 +163,9 @@ impl Method {
             .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
                 index: mi.descriptor_index as usize,
             })?;
+
+        let descriptor = descriptor::parse_method_descriptor(&descriptor.to_string())?;
+        
         let attributes: Vec<MethodAttribute> = mi
             .attributes
             .iter()
@@ -170,7 +176,7 @@ impl Method {
             .collect();
         Ok(Self {
             name: name.to_string(),
-            descriptor: descriptor.to_string(),
+            descriptor: descriptor,
             attributes,
         })
     }

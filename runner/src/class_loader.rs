@@ -91,21 +91,31 @@ pub trait ClassPathEntry: Debug {
 pub enum ClassLoadingError {
     #[snafu(display("Class not found"))]
     NotFound,
+
     #[snafu(context(false))]
     #[snafu(display("IO error: {}", source))]
     IOError { source: std::io::Error },
+
     #[snafu(context(false))]
     #[snafu(display("Parsing error: {}", source))]
     ParsingError { source: ParsingError },
+
     #[snafu(context(false))]
     #[snafu(display("Decoding error: {}", source))]
     DocodingError { source: DecodingError },
+
     #[snafu(context(false))]
     #[snafu(display("Deriving error: {}", source))]
     DerivingError { source: DerivingError },
+
     #[snafu(context(false))]
     #[snafu(display("Constant Pool Loading error: {}", source))]
     ConstantPoolLoadingError { source: ConstantPoolError },
+
+    #[snafu(context(false))]
+    #[snafu(display("Bad descriptor; {}", source))]
+    BadDescriptor { source: reader::descriptor::DescriptorError },
+
     #[snafu(display("Unknown error"))]
     Unknown,
 }
