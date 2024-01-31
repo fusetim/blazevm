@@ -1,3 +1,5 @@
+use snafu::Snafu;
+
 use crate::{
     class::ClassId,
     class_manager::{self, LoadedClass},
@@ -21,13 +23,15 @@ impl Thread {
         }
     }
 
-    pub fn execute(&mut self, class_manager: &mut class_manager::ClassManager) {
+    pub fn execute(&mut self, class_manager: &mut class_manager::ClassManager) -> Result<(), ExecutionError> {
         while let Some(frame) = self.current_frame_mut() {
             let LoadedClass::Loaded(class) = class_manager.get_class_by_id(frame.class).unwrap()
             else {
-                panic!("Class not found");
+                return Err(ExecutionError::ClassNotLoaded);
             };
-            let method = class.get_method_by_index(frame.method).unwrap();
+            let Some(method) = class.get_method_by_index(frame.method) else {
+                return Err(ExecutionError::MethodNotLoaded);
+            };
             // TODO: Native methods
             let code = method
                 .get_code()
@@ -39,7 +43,7 @@ impl Thread {
                 let inst = match crate::opcode::read_instruction(&mut inst_reader) {
                     Ok((_, inst)) => inst,
                     Err(e) => {
-                        panic!("Error reading instruction: {:?}", e);
+                        return Err(ExecutionError::InstructionParseError { source: e });
                     }
                 };
                 match crate::opcode::Opcode::execute(&inst, self, class_manager) {
@@ -60,11 +64,13 @@ impl Thread {
                         break;
                     }
                     Err(e) => {
-                        panic!("Error executing instruction: {:?}", e);
+                        return Err(ExecutionError::InstructionExecutionError { source: e });
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     pub(crate) fn push_frame(&mut self, frame: Frame) {
@@ -81,6 +87,11 @@ impl Thread {
 
     pub(crate) fn current_frame_mut(&mut self) -> Option<&mut Frame> {
         self.stack.last_mut()
+    }
+
+    pub fn reset(&mut self) {
+        self.pc = 0;
+        self.stack.clear();
     }
 }
 
@@ -113,4 +124,25 @@ impl Frame {
     pub fn set_local_variable(&mut self, index: usize, value: Slot) {
         self.local_variables[index] = value;
     }
+}
+
+
+/// Errors that can occur during execution of a thread
+#[derive(Debug, Snafu)]
+pub enum ExecutionError {
+    /// The current class is not loaded
+    #[snafu(display("Class not loaded"))]
+    ClassNotLoaded,
+
+    /// The current method is not loaded
+    #[snafu(display("Method not loaded"))]
+    MethodNotLoaded,
+
+    /// Impossible to parse the current instruction
+    #[snafu(display("Error parsing instruction, source: {}", source))]
+    InstructionParseError { source: crate::opcode::InstructionError },
+
+    /// Error occured during execution of an instruction
+    #[snafu(display("Error executing instruction, source: {}", source))]
+    InstructionExecutionError { source: crate::opcode::InstructionError },
 }

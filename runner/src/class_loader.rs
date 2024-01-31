@@ -1,4 +1,4 @@
-use crate::constant_pool::ConstantPoolError;
+use crate::{constant_pool::ConstantPoolError, thread::ExecutionError};
 use reader::base::{ClassFile, DecodingError, ParsingError};
 use snafu::Snafu;
 use std::fmt::Debug;
@@ -113,10 +113,13 @@ pub enum ClassLoadingError {
     ConstantPoolLoadingError { source: ConstantPoolError },
 
     #[snafu(context(false))]
-    #[snafu(display("Bad descriptor; {}", source))]
+    #[snafu(display("Bad descriptor {}", source))]
     BadDescriptor {
         source: reader::descriptor::DescriptorError,
     },
+
+    #[snafu(display("The class initializer failed: {}", source))]
+    InitializerError { source: ExecutionError },
 
     #[snafu(display("Unknown error"))]
     Unknown,

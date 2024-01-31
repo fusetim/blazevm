@@ -1,12 +1,15 @@
 use std::{cell::OnceCell, collections::HashMap};
 
 use flagset::FlagSet;
-use reader::base::{classfile::ClassAccessFlags, ClassFile};
+use reader::{base::{classfile::ClassAccessFlags, ClassFile}, descriptor::{self, MethodDescriptor}};
 
 use crate::{
-    class::{self, Class, ClassId},
-    class_loader::{ClassLoader, ClassLoadingError, DerivingError},
-    constant_pool::ConstantPool,
+    class::{self, Class, ClassId}, class_loader::{ClassLoader, ClassLoadingError, DerivingError}, constant_pool::ConstantPool, thread::{ExecutionError, Frame, Thread}
+};
+
+const CLINIT_DESCRIPTOR: MethodDescriptor = MethodDescriptor {
+    return_type: None,
+    parameters: vec![],
 };
 
 /// Representation of the class manager.
@@ -37,6 +40,27 @@ impl ClassManager {
         }
     }
 
+    fn execute_class_init(&mut self, thread: &mut Thread, class_id: &ClassId) -> Result<(), ExecutionError> {
+        thread.reset();
+        let clid = {
+            let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(class_id) else {
+                return Err(ExecutionError::ClassNotLoaded);
+            };
+            class.index_of_method("<clinit>", &CLINIT_DESCRIPTOR)
+        };
+        if let Some(clid) = clid {
+            let frame = Frame::new(*class_id, clid, 0);
+            thread.push_frame(frame);
+            thread.execute(self)?;
+        }
+        let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get_mut(class_id) else {
+            return Err(ExecutionError::ClassNotLoaded);
+        };
+        class.initialized = OnceCell::new();
+        class.initialized.set(true).unwrap();
+        Ok(())
+    }
+
     pub fn get_class_by_id(&self, id: ClassId) -> Option<&LoadedClass> {
         self.classes_by_id.get(&id)
     }
@@ -48,10 +72,9 @@ impl ClassManager {
     pub fn get_or_resolve_class(
         &mut self,
         class_name: &str,
-    ) -> Result<LoadedClass, ClassLoadingError> {
-        if let Some(class) = self.classes_by_name.get(class_name) {
-            return Ok(class.clone());
-        } else {
+    ) -> Result<&LoadedClass, ClassLoadingError> {
+        if !self.classes_by_name.contains_key(class_name) {
+            let mut init_thread = Thread::new();
             let mut stack: Vec<String> = Vec::new();
             stack.push(class_name.to_string());
             while let Some(class_name) = stack.pop() {
@@ -107,6 +130,7 @@ impl ClassManager {
                                 initialized: OnceCell::new(),
                             };
                             class.initialized.set(false).unwrap();
+
                             let loaded_class = LoadedClass::Loaded(class);
 
                             // Update the class manager with the fully loaded class.
@@ -116,6 +140,11 @@ impl ClassManager {
                             let _ = self
                                 .classes_by_id
                                 .insert(loading.class_id, loaded_class.clone());
+
+                            // Invoke the class initializer.
+                            if let Err(err) = self.execute_class_init(&mut init_thread, &loading.class_id) {
+                                return Err(ClassLoadingError::InitializerError { source: err });
+                            }
                         }
                     }
                 } else {
@@ -134,9 +163,8 @@ impl ClassManager {
                     }
                 }
             }
-
-            Ok(self.classes_by_name.get(class_name).unwrap().clone())
         }
+        Ok(self.classes_by_name.get(class_name).unwrap())
     }
 
     pub fn resolve_class(
