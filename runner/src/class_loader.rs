@@ -156,7 +156,7 @@ impl ClassPathDirEntry {
 impl ClassPathEntry for ClassPathDirEntry {
     fn read_class(&self, name: &str) -> Result<Vec<u8>, ClassLoadingError> {
         let mut path = self.path.clone();
-        for part in name.split('.') {
+        for part in name.split(&['/', '.'][..]) {
             path.push(part);
         }
         path.set_extension("class");

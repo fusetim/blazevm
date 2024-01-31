@@ -1,5 +1,5 @@
 use crate::{
-    class_loader::{ClassLoader, ClassPathDirEntry},
+    class_loader::{ClassLoader},
     class_manager::ClassManager,
     thread_manager::ThreadManager,
 };
@@ -12,11 +12,9 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new() -> Self {
-        let mut classloader = ClassLoader::new();
-        classloader.add_class_path_entry(Box::new(ClassPathDirEntry::new("./classpath/")));
+    pub fn new(cl : ClassLoader) -> Self {
         Self {
-            class_manager: ClassManager::new(classloader),
+            class_manager: ClassManager::new(cl),
             thread_manager: ThreadManager::new(),
         }
     }
