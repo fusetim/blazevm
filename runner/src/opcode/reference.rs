@@ -111,6 +111,10 @@ pub fn putstatic(
             ),
         });
     };
+
+    let class_initialized =
+        impl_class.initialized.get().is_some() && impl_class.initialized.get().cloned().unwrap();
+
     let Some(field) = impl_class.get_mut_field(&field_name) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -129,7 +133,7 @@ pub fn putstatic(
         });
     }
 
-    if field.is_final() && impl_class.initialized.get().is_some() && *impl_class.initialized.get().unwrap() {
+    if field.is_final() && class_initialized {
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Field is final and class is already initialized: ClassId({}), field name {}, field descriptor {:?}",

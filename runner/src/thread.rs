@@ -33,7 +33,7 @@ impl Thread {
                 .get_code()
                 .expect("Code attribute not found, probably a native method");
 
-            let mut inst_reader = Cursor::new(&code.instructions);
+            let mut inst_reader = Cursor::new(code.instructions.clone());
             loop {
                 inst_reader.set_position(self.pc as u64);
                 let inst = match crate::opcode::read_instruction(&mut inst_reader) {
@@ -42,7 +42,7 @@ impl Thread {
                         panic!("Error reading instruction: {:?}", e);
                     }
                 };
-                match crate::opcode::Opcode::execute(&inst, class_manager, class_manager) {
+                match crate::opcode::Opcode::execute(&inst, self, class_manager) {
                     Ok(InstructionSuccess::Next(n)) => {
                         self.pc += n;
                     }
