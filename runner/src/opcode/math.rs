@@ -1,4 +1,4 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::{xadd, xand, xdiv, xmul, xneg1, xneg2, xor, xrem, xshl, xshr, xsub, xxor};
@@ -51,13 +51,16 @@ xxor!(ixor, Int);
 xxor!(lxor, Long);
 
 /// `iinc` - Increment local variable by constant.
-pub fn iinc(thread: &mut Thread, index: u8, increment: i8) -> Result<(), InstructionError> {
+pub fn iinc(
+    thread: &mut Thread,
+    index: u8,
+    increment: i8,
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     if let Some(slot) = frame.local_variables.get_mut(index as usize) {
         if let Slot::Int(value) = slot {
             *value += increment as i32;
-            thread.pc += 3;
-            Ok(())
+            Ok(InstructionSuccess::Next(3))
         } else {
             return Err(InstructionError::InvalidState {
                 context: "Expected Int".into(),
@@ -71,13 +74,16 @@ pub fn iinc(thread: &mut Thread, index: u8, increment: i8) -> Result<(), Instruc
 }
 
 /// `iinc` (wide variation) - Increment local variable by constant.
-pub fn wide_iinc(thread: &mut Thread, index: u16, increment: i16) -> Result<(), InstructionError> {
+pub fn wide_iinc(
+    thread: &mut Thread,
+    index: u16,
+    increment: i16,
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     if let Some(slot) = frame.local_variables.get_mut(index as usize) {
         if let Slot::Int(value) = slot {
             *value += increment as i32;
-            thread.pc += 5;
-            Ok(())
+            Ok(InstructionSuccess::Next(5))
         } else {
             return Err(InstructionError::InvalidState {
                 context: "Expected Int".into(),
@@ -95,7 +101,7 @@ mod macros {
     macro_rules! xadd {
         ($name:ident, $ty:ident, $real_ty:ty, $final_ty:ty) => {
             /// Add two values from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -119,8 +125,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -129,7 +134,7 @@ mod macros {
     macro_rules! xsub {
         ($name:ident, $ty:ident, $real_ty:ty, $final_ty:ty) => {
             /// Substract two values from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -153,8 +158,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -163,7 +167,7 @@ mod macros {
     macro_rules! xmul {
         ($name:ident, $ty:ident, $real_ty:ty, $final_ty:ty) => {
             /// Multiply two values from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -187,8 +191,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -197,7 +200,7 @@ mod macros {
     macro_rules! xdiv {
         ($name:ident, $ty:ident, $real_ty:ty, $final_ty:ty) => {
             /// Divide a value by another from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -221,8 +224,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -231,7 +233,7 @@ mod macros {
     macro_rules! xrem {
         ($name:ident, $ty:ident, $real_ty:ty, $final_ty:ty) => {
             /// The reminder of a value by another from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -255,8 +257,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -265,7 +266,7 @@ mod macros {
     macro_rules! xneg1 {
         ($name:ident, $ty:ident) => {
             /// Negate a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$ty(value) = slot {
@@ -280,8 +281,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -290,7 +290,7 @@ mod macros {
     macro_rules! xneg2 {
         ($name:ident, $ty:ident, $real_ty:ty) => {
             /// Negate a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$ty(value) = slot {
@@ -315,8 +315,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -325,7 +324,7 @@ mod macros {
     macro_rules! xshl {
         ($name:ident, $ty:ident) => {
             /// Shift left a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -349,8 +348,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -359,7 +357,7 @@ mod macros {
     macro_rules! xshr {
         ($name:ident, $ty:ident) => {
             /// Shift right a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot1) = frame.operand_stack.pop() {
                     if let Some(slot2) = frame.operand_stack.pop() {
@@ -383,8 +381,7 @@ mod macros {
                         context: "Operand stack is empty".into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -393,7 +390,7 @@ mod macros {
     macro_rules! xand {
         ($name:ident, $ty:ident) => {
             /// Bitwise and a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let (Some(slot1), Some(slot2)) =
                     (frame.operand_stack.pop(), frame.operand_stack.pop())
@@ -411,8 +408,7 @@ mod macros {
                             .into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -421,7 +417,7 @@ mod macros {
     macro_rules! xor {
         ($name:ident, $ty:ident) => {
             /// Bitwise or a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let (Some(slot1), Some(slot2)) =
                     (frame.operand_stack.pop(), frame.operand_stack.pop())
@@ -439,8 +435,7 @@ mod macros {
                             .into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }
@@ -449,7 +444,7 @@ mod macros {
     macro_rules! xxor {
         ($name:ident, $ty:ident) => {
             /// Bitwise xor a value from the operand stack and push the result onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let (Some(slot1), Some(slot2)) =
                     (frame.operand_stack.pop(), frame.operand_stack.pop())
@@ -467,8 +462,7 @@ mod macros {
                             .into(),
                     });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }

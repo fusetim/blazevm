@@ -1,13 +1,12 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::class_manager::{ClassManager, LoadedClass};
 use crate::constant_pool::ConstantPoolEntry;
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::xconst_i;
 
-pub fn nop(thread: &mut Thread) -> Result<(), InstructionError> {
-    thread.pc += 1;
-    Ok(())
+pub fn nop(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
+    Ok(InstructionSuccess::Next(1))
 }
 
 xconst_i!(iconst_m1, Int, -1);
@@ -29,23 +28,25 @@ xconst_i!(dconst_0, Double, 0.0);
 xconst_i!(dconst_1, Double, 1.0);
 
 /// `bipush` pushes a byte onto the stack as an integer.
-pub fn bipush(thread: &mut Thread, value: i8) -> Result<(), InstructionError> {
+pub fn bipush(thread: &mut Thread, value: i8) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     frame.operand_stack.push(Slot::Int(value as i32));
-    thread.pc += 2;
-    Ok(())
+    Ok(InstructionSuccess::Next(2))
 }
 
 /// `sipush` pushes a short onto the stack as an integer.
-pub fn sipush(thread: &mut Thread, value: i16) -> Result<(), InstructionError> {
+pub fn sipush(thread: &mut Thread, value: i16) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     frame.operand_stack.push(Slot::Int(value as i32));
-    thread.pc += 3;
-    Ok(())
+    Ok(InstructionSuccess::Next(3))
 }
 
 /// `ldc` pushes a constant from the constant pool onto the stack.
-pub fn ldc(thread: &mut Thread, cm: &mut ClassManager, value: u8) -> Result<(), InstructionError> {
+pub fn ldc(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    value: u8,
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
     let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
@@ -68,8 +69,7 @@ pub fn ldc(thread: &mut Thread, cm: &mut ClassManager, value: u8) -> Result<(), 
             });
         }
     }
-    thread.pc += 2;
-    Ok(())
+    Ok(InstructionSuccess::Next(2))
 }
 
 /// `ldc_w` pushes a constant from the constant pool onto the stack.
@@ -77,7 +77,7 @@ pub fn ldc_w(
     thread: &mut Thread,
     cm: &mut ClassManager,
     value: u16,
-) -> Result<(), InstructionError> {
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
     let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
@@ -101,8 +101,7 @@ pub fn ldc_w(
             });
         }
     }
-    thread.pc += 3;
-    Ok(())
+    Ok(InstructionSuccess::Next(3))
 }
 
 /// `ldc2_w` pushes a long/double constant from the constant pool onto the stack.
@@ -110,7 +109,7 @@ pub fn ldc2_w(
     thread: &mut Thread,
     cm: &mut ClassManager,
     value: u16,
-) -> Result<(), InstructionError> {
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
     let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
@@ -134,8 +133,7 @@ pub fn ldc2_w(
             });
         }
     }
-    thread.pc += 3;
-    Ok(())
+    Ok(InstructionSuccess::Next(3))
 }
 
 mod macros {
@@ -143,11 +141,10 @@ mod macros {
     macro_rules! xconst_i {
         ($name:ident, $sloty:ident, $value:expr) => {
             /// Push a constant value onto the stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 frame.operand_stack.push(Slot::$sloty($value));
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }

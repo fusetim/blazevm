@@ -7,7 +7,11 @@ use crate::{
     constant_pool::{ConstantPool, ConstantPoolError},
 };
 use dumpster::Collectable;
-use reader::BinRead;
+use flagset::FlagSet;
+use reader::{
+    base::classfile::{ClassAccessFlags, FieldAccessFlags, MethodAccessFlags},
+    BinRead,
+};
 use reader::{
     base::{
         attribute_info::{CodeAttribute, ConstantValueAttribute},
@@ -36,7 +40,7 @@ pub struct Class {
     pub constant_pool: ConstantPool,
     pub superclass: ClassId,
     pub interfaces: Vec<ClassId>,
-    // pub flags: ClassAccessFlags,
+    pub flags: FlagSet<ClassAccessFlags>,
     pub fields: Vec<Field>,
     pub methods: Vec<Method>,
     /// Whether the class has been initialized.
@@ -47,10 +51,15 @@ pub struct Class {
 }
 
 impl Class {
-    pub fn get_method(&self, name: &str, descriptor: &MethodDescriptor) -> Option<&Method> {
+    pub fn get_method(
+        &self,
+        name: &str,
+        descriptor: &MethodDescriptor,
+    ) -> Option<(usize, &Method)> {
         self.methods
             .iter()
-            .find(|method| method.name == name && method.descriptor == *descriptor)
+            .enumerate()
+            .find(|method| method.1.name == name && method.1.descriptor == *descriptor)
     }
 
     pub fn get_field(&self, name: &str) -> Option<&Field> {
@@ -84,7 +93,7 @@ impl Class {
 pub struct Field {
     pub name: String,
     pub descriptor: FieldDescriptor,
-    // pub flags: FieldAccessFlags,
+    pub flags: FlagSet<FieldAccessFlags>,
     pub value: Slot,
     pub attributes: Vec<FieldAttribute>,
 }
@@ -127,11 +136,14 @@ impl Field {
             }
         }
 
+        let flags = fi.access_flags.clone();
+
         Ok(Self {
             name: name.to_string(),
             value,
             descriptor: descriptor,
             attributes,
+            flags,
         })
     }
 
@@ -146,7 +158,7 @@ impl Field {
 pub struct Method {
     pub name: String,
     pub descriptor: MethodDescriptor,
-    // pub flags: MethodAccessFlags,
+    pub flags: FlagSet<MethodAccessFlags>,
     pub attributes: Vec<MethodAttribute>,
 }
 
@@ -177,10 +189,14 @@ impl Method {
             .into_iter()
             .flatten()
             .collect();
+
+        let flags = mi.access_flags.clone();
+
         Ok(Self {
             name: name.to_string(),
             descriptor: descriptor,
             attributes,
+            flags,
         })
     }
 
@@ -189,6 +205,18 @@ impl Method {
             MethodAttribute::Code(code) => Some(code),
             _ => None,
         })
+    }
+
+    pub fn get_flags(&self) -> &FlagSet<MethodAccessFlags> {
+        &self.flags
+    }
+
+    pub fn is_static(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Static)
+    }
+
+    pub fn is_native(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Native)
     }
 }
 

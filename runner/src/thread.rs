@@ -1,7 +1,9 @@
 use crate::{
     class::ClassId,
     class_manager::{self, LoadedClass},
+    opcode::InstructionSuccess,
 };
+use std::io::Cursor;
 
 pub use crate::slot::Slot;
 
@@ -30,9 +32,38 @@ impl Thread {
             let code = method
                 .get_code()
                 .expect("Code attribute not found, probably a native method");
-            let instruction = code.instructions[self.pc];
-            // TODO: Do something with the instruction
-            self.pc += 1;
+
+            let mut inst_reader = Cursor::new(&code.instructions);
+            loop {
+                inst_reader.set_position(self.pc as u64);
+                let inst = match crate::opcode::read_instruction(&mut inst_reader) {
+                    Ok((_, inst)) => inst,
+                    Err(e) => {
+                        panic!("Error reading instruction: {:?}", e);
+                    }
+                };
+                match crate::opcode::Opcode::execute(&inst, class_manager, class_manager) {
+                    Ok(InstructionSuccess::Next(n)) => {
+                        self.pc += n;
+                    }
+                    Ok(InstructionSuccess::JumpRelative(offset)) => {
+                        self.pc = ((self.pc as isize) + offset) as usize;
+                    }
+                    Ok(InstructionSuccess::JumpAbsolute(offset)) => {
+                        self.pc = offset;
+                    }
+                    Ok(InstructionSuccess::FrameChange(pc)) => {
+                        self.pc = pc;
+                        break;
+                    }
+                    Ok(InstructionSuccess::Completed) => {
+                        break;
+                    }
+                    Err(e) => {
+                        panic!("Error executing instruction: {:?}", e);
+                    }
+                }
+            }
         }
     }
 
@@ -59,4 +90,27 @@ pub struct Frame {
     pub operand_stack: Vec<Slot>,
     pub class: ClassId,
     pub method: usize,
+}
+
+impl Frame {
+    pub fn new(class: ClassId, method: usize, varlen: usize) -> Self {
+        Self {
+            local_variables: vec![Slot::Tombstone; varlen],
+            operand_stack: vec![],
+            class,
+            method,
+        }
+    }
+
+    pub fn get_local_variable(&self, index: usize) -> Option<&Slot> {
+        self.local_variables.get(index)
+    }
+
+    pub fn get_local_variable_mut(&mut self, index: usize) -> Option<&mut Slot> {
+        self.local_variables.get_mut(index)
+    }
+
+    pub fn set_local_variable(&mut self, index: usize, value: Slot) {
+        self.local_variables[index] = value;
+    }
 }

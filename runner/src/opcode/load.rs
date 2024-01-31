@@ -1,4 +1,4 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::{xload, xload_n};
@@ -37,7 +37,10 @@ mod macros {
     macro_rules! xload {
         ($name:ident, $ty:ident) => {
             /// Load a value from the local variables onto the operand stack.
-            pub fn $name(thread: &mut Thread, index: u8) -> Result<(), InstructionError> {
+            pub fn $name(
+                thread: &mut Thread,
+                index: u8,
+            ) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.local_variables.get(index as usize) {
                     if let Slot::$ty(value) = slot {
@@ -52,8 +55,7 @@ mod macros {
                         context: format!("Local variable {} not found", index),
                     });
                 }
-                thread.pc += 2;
-                Ok(())
+                Ok(InstructionSuccess::Next(2))
             }
         };
     }
@@ -62,7 +64,7 @@ mod macros {
     macro_rules! xload_n {
         ($name:ident, $ty:ident, $index:expr) => {
             /// Load a value from the local variables onto the operand stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.local_variables.get($index as usize) {
                     if let Slot::$ty(value) = slot {
@@ -77,8 +79,7 @@ mod macros {
                         context: format!("Local variable {} not found", $index),
                     });
                 }
-                thread.pc += 2;
-                Ok(())
+                Ok(InstructionSuccess::Next(2))
             }
         };
     }

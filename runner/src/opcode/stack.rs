@@ -1,4 +1,4 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 
@@ -7,17 +7,14 @@ use crate::thread::Thread;
 /// Note: If the top value is a long or double, it is treated as two values.
 /// The pop instruction MUST NOT be used to pop a value that is a part of a
 /// double-width operand.
-pub fn pop(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn pop(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.pop() {
         Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
             context: "Illegal operation, pop on stack where top of stack is a long/double slot."
                 .into(),
         }),
-        Some(_) => {
-            thread.pc += 1;
-            Ok(())
-        }
+        Some(_) => Ok(InstructionSuccess::Next(1)),
         None => Err(InstructionError::InvalidState {
             context: "Operand stack is empty".into(),
         }),
@@ -28,18 +25,12 @@ pub fn pop(thread: &mut Thread) -> Result<(), InstructionError> {
 ///
 /// Note: If the top value is a long or double, it is treated as two values.
 /// Otherwise, pop2 removes two single-word values from the operand stack.
-pub fn pop2(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn pop2(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.pop() {
-        Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-            thread.pc += 1;
-            Ok(())
-        }
+        Some(Slot::Double(_)) | Some(Slot::Long(_)) => Ok(InstructionSuccess::Next(1)),
         Some(_) => match frame.operand_stack.pop() {
-            Some(Slot::Double(_)) | Some(Slot::Long(_)) => {
-                thread.pc += 1;
-                Ok(())
-            }
+            Some(Slot::Double(_)) | Some(Slot::Long(_)) => Ok(InstructionSuccess::Next(1)),
             Some(_) => Err(InstructionError::InvalidState {
                 context:
                     "Illegal operation, pop2 on stack where top of stack are long/double slots."
@@ -58,7 +49,7 @@ pub fn pop2(thread: &mut Thread) -> Result<(), InstructionError> {
 /// `dup` duplicates the top operand stack value.
 ///
 /// Note: Must only be used on a single-word value.
-pub fn dup(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dup(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
         Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
@@ -67,8 +58,7 @@ pub fn dup(thread: &mut Thread) -> Result<(), InstructionError> {
         }),
         Some(slot) => {
             frame.operand_stack.push(slot.clone());
-            thread.pc += 1;
-            Ok(())
+            Ok(InstructionSuccess::Next(1))
         }
         None => Err(InstructionError::InvalidState {
             context: "Operand stack is empty".into(),
@@ -79,7 +69,7 @@ pub fn dup(thread: &mut Thread) -> Result<(), InstructionError> {
 /// `dup_x1` duplicates the top operand stack value and inserts two values down.
 ///
 /// Note: Must only be used on a single-word value.
-pub fn dup_x1(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dup_x1(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
         Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
@@ -98,8 +88,7 @@ pub fn dup_x1(thread: &mut Thread) -> Result<(), InstructionError> {
                     frame.operand_stack.push(slot.clone());
                     frame.operand_stack.push(slot2);
                     frame.operand_stack.push(slot);
-                    thread.pc += 1;
-                    Ok(())
+                    Ok(InstructionSuccess::Next(1))
                 }
                 None => {
                     Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
@@ -116,7 +105,7 @@ pub fn dup_x1(thread: &mut Thread) -> Result<(), InstructionError> {
 ///
 /// Note: Must only be used on a single-word value, but is practical when the 2nd value is
 /// a long or double.
-pub fn dup_x2(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dup_x2(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
         Some(Slot::Double(_)) | Some(Slot::Long(_)) => Err(InstructionError::InvalidState {
@@ -132,8 +121,7 @@ pub fn dup_x2(thread: &mut Thread) -> Result<(), InstructionError> {
                     frame.operand_stack.push(slot.clone());
                     frame.operand_stack.push(slot2);
                     frame.operand_stack.push(slot);
-                    thread.pc += 1;
-                    Ok(())
+                    Ok(InstructionSuccess::Next(1))
                 }
                 Some(_) => {
                     let slot2 = frame.operand_stack.pop().unwrap();
@@ -148,8 +136,7 @@ pub fn dup_x2(thread: &mut Thread) -> Result<(), InstructionError> {
                             frame.operand_stack.push(slot3);
                             frame.operand_stack.push(slot2);
                             frame.operand_stack.push(slot);
-                            thread.pc += 1;
-                            Ok(())
+                            Ok(InstructionSuccess::Next(1))
                         }
                         None => {
                             Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
@@ -168,7 +155,7 @@ pub fn dup_x2(thread: &mut Thread) -> Result<(), InstructionError> {
 }
 
 /// `dup2` duplicates the top one or two operand stack values.
-pub fn dup2(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dup2(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     match frame.operand_stack.last() {
         // If 1st slot is a long or double, it is treated as two values.
@@ -176,8 +163,7 @@ pub fn dup2(thread: &mut Thread) -> Result<(), InstructionError> {
             let slot = frame.operand_stack.pop().unwrap();
             frame.operand_stack.push(slot.clone());
             frame.operand_stack.push(slot);
-            thread.pc += 1;
-            Ok(())
+            Ok(InstructionSuccess::Next(1))
         }
         Some(_) => {
             // Otherwise, dup the two single-word values from the operand stack.
@@ -192,8 +178,7 @@ pub fn dup2(thread: &mut Thread) -> Result<(), InstructionError> {
                     frame.operand_stack.push(slot1.clone());
                     frame.operand_stack.push(slot2.clone());
                     frame.operand_stack.push(slot1.clone());
-                    thread.pc += 1;
-                    Ok(())
+                    Ok(InstructionSuccess::Next(1))
                 }
                 None => {
                     Err(InstructionError::InvalidState { context: "Operand stack is empty".into() })
@@ -207,7 +192,7 @@ pub fn dup2(thread: &mut Thread) -> Result<(), InstructionError> {
 }
 
 /// `dup2_x1` duplicates the top one or two operand stack values and inserts two or three values down.
-pub fn dup2_x1(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dup2_x1(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let len = frame.operand_stack.len();
     if len < 2 {
@@ -244,12 +229,11 @@ pub fn dup2_x1(thread: &mut Thread) -> Result<(), InstructionError> {
                     .into(),
         });
     }
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 /// `dup2_x2` duplicates the top one or two operand stack values and inserts two, three, or four values down.
-pub fn dup2_x2(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dup2_x2(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let len = frame.operand_stack.len();
     if len < 2 {
@@ -312,14 +296,13 @@ pub fn dup2_x2(thread: &mut Thread) -> Result<(), InstructionError> {
         frame.operand_stack.push(slot2.clone());
         frame.operand_stack.push(slot1.clone());
     }
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 /// `swap` swaps the top two operand stack values.
 ///
 /// Note: Must only be used on single-word values.
-pub fn swap(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn swap(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let len = frame.operand_stack.len();
     if len < 2 {
@@ -332,8 +315,7 @@ pub fn swap(thread: &mut Thread) -> Result<(), InstructionError> {
         let slot2 = frame.operand_stack.pop().unwrap();
         frame.operand_stack.push(slot1.clone());
         frame.operand_stack.push(slot2.clone());
-        thread.pc += 1;
-        Ok(())
+        Ok(InstructionSuccess::Next(1))
     } else {
         Err(InstructionError::InvalidState {
             context:

@@ -1,4 +1,4 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::{xstore, xstore_n};
@@ -37,7 +37,7 @@ mod macros {
     macro_rules! xstore {
         ($name:ident, $ty:ident) => {
             /// Store a value from the operand stack into the local variables.
-            pub fn $name(thread: &mut Thread, index: u8) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread, index: u8) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$ty(value) = slot {
@@ -51,14 +51,13 @@ mod macros {
                 } else {
                     return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
                 }
-                thread.pc += 2;
-                Ok(())
+                Ok(InstructionSuccess::Next(2))
             }
         };
 
         ($name:ident, $ty:ident, true) => {
             /// Store a value from the operand stack into the local variables.
-            pub fn $name(thread: &mut Thread, index: u8) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread, index: u8) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$ty(value) = slot {
@@ -73,8 +72,7 @@ mod macros {
                 } else {
                     return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
                 }
-                thread.pc += 2;
-                Ok(())
+                Ok(InstructionSuccess::Next(2))
             }
         };
     }
@@ -83,7 +81,7 @@ mod macros {
     macro_rules! xstore_n {
         ($name:ident, $ty:ident, $index:expr) => {
             /// Store a value from the operand stack into the local variables.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$ty(value) = slot {
@@ -97,14 +95,13 @@ mod macros {
                 } else {
                     return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
 
         ($name:ident, $ty:ident, $index:expr, true) => {
             /// Store a value from the operand stack into the local variables.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$ty(value) = slot {
@@ -119,8 +116,7 @@ mod macros {
                 } else {
                     return Err(InstructionError::InvalidState { context: "Operand stack is empty".into() });
                 }
-                thread.pc += 1;
-                Ok(())
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }

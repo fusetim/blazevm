@@ -510,7 +510,7 @@ impl Opcode {
         &self,
         thread: &mut Thread,
         cm: &mut ClassManager,
-    ) -> Result<(), InstructionError> {
+    ) -> Result<InstructionSuccess, InstructionError> {
         match self {
             Opcode::Nop => constant::nop(thread),
             // Opcode::AConstNull
@@ -692,6 +692,37 @@ pub enum InstructionError {
 
     #[snafu(display("Corrupted opcode: {}, context: {:?}", opcode, source))]
     CorruptedOpcode { opcode: u8, source: ParsingError },
+}
+
+/// The result of executing an instruction.
+///
+/// Indicate where the next instruction should be read from.
+#[derive(Debug, Clone)]
+pub enum InstructionSuccess {
+    /// The next instruction is the next instruction in the code.
+    ///
+    /// The offset is the number of bytes to skip to get to the next instruction.
+    Next(usize),
+
+    /// Jump relatively to the address.
+    ///
+    /// The offset is the number of bytes to add/remove to get to the next instruction.
+    JumpRelative(isize),
+
+    /// Jump absolutely to the address.
+    JumpAbsolute(usize),
+
+    /// Frame has been added/removed. The PC is set to the value given.
+    ///
+    /// A frame has been pushed or popped from the stack. The PC is set to the value given.
+    /// In case of the return of a method invokation, the PC is generally set to the InvokationReturnAddress of the last frame.
+    /// In case of the invokation of a method, the PC is generally set to the first instruction of the method, ie 0.
+    FrameChange(usize),
+
+    /// The execution of the thread has completed.
+    ///
+    /// The stack is empty, the thread has completed its execution.
+    Completed,
 }
 
 #[macro_use]

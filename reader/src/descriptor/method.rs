@@ -20,6 +20,10 @@ impl MethodDescriptor {
             },
         ))
     }
+
+    pub fn args_count(&self) -> usize {
+        self.parameters.len()
+    }
 }
 
 fn parse_parameters(input: &str) -> IResult<&str, Vec<FieldType>> {

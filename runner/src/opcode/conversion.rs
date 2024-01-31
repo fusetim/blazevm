@@ -1,4 +1,4 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::{i2truncate, x2y};
@@ -28,15 +28,14 @@ mod macros {
     macro_rules! x2y {
         ($name:ident, $srcty:ident, $destty:ident, $real_destty:ty) => {
             /// Convert the top value to another numeric form and push it back to the stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::$srcty(value) = slot {
                         frame
                             .operand_stack
                             .push(Slot::$destty(value as $real_destty));
-                        thread.pc += 1;
-                        Ok(())
+                        Ok(InstructionSuccess::Next(1))
                     } else {
                         return Err(InstructionError::InvalidState {
                             context: format!(
@@ -59,7 +58,7 @@ mod macros {
     macro_rules! i2truncate {
         ($name:ident, $real_destty:ty) => {
             /// Convert the top value (int) to a byte/char/short form by truncation and push it back to the stack.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(slot) = frame.operand_stack.pop() {
                     if let Slot::Int(value) = slot {
@@ -67,7 +66,7 @@ mod macros {
                             .operand_stack
                             .push(Slot::Int((value as $real_destty) as i32));
                         thread.pc += 1;
-                        Ok(())
+                        Ok(InstructionSuccess::Next(1))
                     } else {
                         return Err(InstructionError::InvalidState {
                             context: format!("Expected {:?} but got {:?}", stringify!($ty), slot),

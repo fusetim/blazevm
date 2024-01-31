@@ -1,4 +1,4 @@
-use super::InstructionError;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::{if_icmpx, ifx};
@@ -21,7 +21,7 @@ if_icmpx!(if_icmpgt, >);
 // TODO: implement if_acmpx
 
 /// `lcmp` compares two longs and pushes the result onto the stack.
-pub fn lcmp(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn lcmp(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let value2 = frame.operand_stack.pop().unwrap();
     let value1 = frame.operand_stack.pop().unwrap();
@@ -42,14 +42,13 @@ pub fn lcmp(thread: &mut Thread) -> Result<(), InstructionError> {
         }
     };
     frame.operand_stack.push(Slot::Int(result));
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 /// `fcmpl` compares two floats and pushes the result onto the stack.
 ///
 /// If either value is NaN, then -1 is pushed onto the stack.
-pub fn fcmpl(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn fcmpl(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let value2 = frame.operand_stack.pop().unwrap();
     let value1 = frame.operand_stack.pop().unwrap();
@@ -72,14 +71,13 @@ pub fn fcmpl(thread: &mut Thread) -> Result<(), InstructionError> {
         }
     };
     frame.operand_stack.push(Slot::Int(result));
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 /// `fcmpg` compares two floats and pushes the result onto the stack.
 ///
 /// If either value is NaN, then 1 is pushed onto the stack.
-pub fn fcmpg(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn fcmpg(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let value2 = frame.operand_stack.pop().unwrap();
     let value1 = frame.operand_stack.pop().unwrap();
@@ -102,14 +100,13 @@ pub fn fcmpg(thread: &mut Thread) -> Result<(), InstructionError> {
         }
     };
     frame.operand_stack.push(Slot::Int(result));
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 /// `dcmpl` compares two doubles and pushes the result onto the stack.
 ///
 /// If either value is NaN, then -1 is pushed onto the stack.
-pub fn dcmpl(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dcmpl(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let value2 = frame.operand_stack.pop().unwrap();
     let value1 = frame.operand_stack.pop().unwrap();
@@ -132,14 +129,13 @@ pub fn dcmpl(thread: &mut Thread) -> Result<(), InstructionError> {
         }
     };
     frame.operand_stack.push(Slot::Int(result));
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 /// `dcmpg` compares two doubles and pushes the result onto the stack.
 ///
 /// If either value is NaN, then 1 is pushed onto the stack.
-pub fn dcmpg(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn dcmpg(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let value2 = frame.operand_stack.pop().unwrap();
     let value1 = frame.operand_stack.pop().unwrap();
@@ -162,8 +158,7 @@ pub fn dcmpg(thread: &mut Thread) -> Result<(), InstructionError> {
         }
     };
     frame.operand_stack.push(Slot::Int(result));
-    thread.pc += 1;
-    Ok(())
+    Ok(InstructionSuccess::Next(1))
 }
 
 mod macros {
@@ -171,15 +166,14 @@ mod macros {
     macro_rules! ifx {
         ($name:ident, $cond:tt) => {
             /// Branch if top of stack comparison with zero succeeds.
-            pub fn $name(thread: &mut Thread, offset: i16) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread, offset: i16) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(Slot::Int(value)) = frame.operand_stack.pop() {
                     if value $cond 0 {
-                        thread.pc = (thread.pc as i32 + offset as i32) as usize;
+                        Ok(InstructionSuccess::JumpRelative(offset as isize))
                     } else {
-                        thread.pc += 3;
+                        Ok(InstructionSuccess::Next(3))
                     }
-                    Ok(())
                 } else {
                     Err(InstructionError::InvalidState { context: "Expected int on top of operand stack".into() })
                 }
@@ -191,16 +185,15 @@ mod macros {
     macro_rules! if_icmpx {
         ($name:ident, $cond:tt) => {
             /// Branch if int comparison succeeds.
-            pub fn $name(thread: &mut Thread, offset: i16) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread, offset: i16) -> Result<InstructionSuccess, InstructionError> {
                 let frame = thread.current_frame_mut().unwrap();
                 if let Some(Slot::Int(value2)) = frame.operand_stack.pop() {
                     if let Some(Slot::Int(value1)) = frame.operand_stack.pop() {
                         if value1 $cond value2 {
-                            thread.pc = (thread.pc as i32 + offset as i32) as usize;
+                            Ok(InstructionSuccess::JumpRelative(offset as isize))
                         } else {
-                            thread.pc += 3;
+                            Ok(InstructionSuccess::Next(3))
                         }
-                        Ok(())
                     } else {
                         Err(InstructionError::InvalidState { context: "Expected int on top of operand stack".into() })
                     }

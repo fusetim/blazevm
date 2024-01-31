@@ -2,13 +2,17 @@ use dumpster::Collectable;
 use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry;
 use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
 use reader::base::ConstantPool as ClassfileConstantPool;
+use reader::descriptor;
+use reader::descriptor::FieldDescriptor;
+use reader::descriptor::MethodDescriptor;
 use snafu::Snafu;
 
 use crate::class::ClassId;
 use crate::class_manager::ClassManager;
+use crate::opcode::InstructionError;
 
 /// Runtime representation of the constant pool.
-#[derive(Debug, Collectable, Clone)]
+#[derive(Debug, Clone)]
 pub struct ConstantPool {
     /// A mapping from the constant pool index to the index of the corresponding
     /// entry in the `entries` vector.
@@ -36,6 +40,14 @@ impl ConstantPool {
         let entry = self.get(index)?;
         match entry {
             ConstantPoolEntry::FieldReference { .. } => Some(entry),
+            _ => None,
+        }
+    }
+
+    pub fn get_method_ref(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        let entry = self.get(index)?;
+        match entry {
+            ConstantPoolEntry::MethodReference { .. } => Some(entry),
             _ => None,
         }
     }
@@ -69,9 +81,16 @@ impl ConstantPool {
                         let implementor = cm
                             .get_or_resolve_class(&class_name)
                             .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        let descriptor =
+                            descriptor::parse_field_descriptor(&field_descriptor.to_owned())
+                                .map_err(|err| ConstantPoolError::InvalidDescriptor {
+                                    index: info.name_and_type_index as usize,
+                                    source: err,
+                                })?;
+
                         cp.append(ConstantPoolEntry::FieldReference {
                             field_name: field_name.to_string(),
-                            field_descriptor: field_descriptor.to_string(),
+                            field_descriptor: descriptor,
                             implementor: implementor.id(),
                         });
                     }
@@ -89,9 +108,16 @@ impl ConstantPool {
                         let implementor = cm
                             .get_or_resolve_class(&class_name)
                             .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        let descriptor =
+                            descriptor::parse_method_descriptor(&&method_descriptor.to_owned())
+                                .map_err(|err| ConstantPoolError::InvalidDescriptor {
+                                    index: info.name_and_type_index as usize,
+                                    source: err,
+                                })?;
+
                         cp.append(ConstantPoolEntry::MethodReference {
                             method_name: method_name.to_string(),
-                            method_descriptor: method_descriptor.to_string(),
+                            method_descriptor: descriptor,
                             implementor: implementor.id(),
                         });
                     }
@@ -109,9 +135,16 @@ impl ConstantPool {
                         let implementor = cm
                             .get_or_resolve_class(&class_name)
                             .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                        let descriptor =
+                            descriptor::parse_method_descriptor(&&method_descriptor.to_owned())
+                                .map_err(|err| ConstantPoolError::InvalidDescriptor {
+                                    index: info.name_and_type_index as usize,
+                                    source: err,
+                                })?;
+
                         cp.append(ConstantPoolEntry::InterfaceMethodReference {
                             method_name: method_name.to_string(),
-                            method_descriptor: method_descriptor.to_string(),
+                            method_descriptor: descriptor,
                             implementor: implementor.id(),
                         });
                     }
@@ -139,12 +172,18 @@ pub enum ConstantPoolError {
     #[snafu(display("Invalid constant reference, entry index: {}", index))]
     InvalidConstantReference { index: usize },
 
+    #[snafu(display("Invalid descriptor, entry index: {}, source: {}", index, source))]
+    InvalidDescriptor {
+        index: usize,
+        source: descriptor::DescriptorError,
+    },
+
     #[snafu(display("Loading failure of a class/interface reference."))]
     ClassLoadingFailure,
 }
 
 /// Runtime representation of a constant pool entry.
-#[derive(Debug, Collectable, Clone)]
+#[derive(Debug, Clone)]
 pub enum ConstantPoolEntry {
     IntegerConstant(i32),
     FloatConstant(f32),
@@ -156,17 +195,17 @@ pub enum ConstantPoolEntry {
     // the symbolic references (class, field, method, interface method, ...).
     FieldReference {
         field_name: String,
-        field_descriptor: String,
+        field_descriptor: FieldDescriptor,
         implementor: ClassId,
     },
     MethodReference {
         method_name: String,
-        method_descriptor: String,
+        method_descriptor: MethodDescriptor,
         implementor: ClassId,
     },
     InterfaceMethodReference {
         method_name: String,
-        method_descriptor: String,
+        method_descriptor: MethodDescriptor,
         implementor: ClassId,
     },
     // MethodHandleReference(MethodHandleReference),

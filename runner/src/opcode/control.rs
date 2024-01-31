@@ -1,65 +1,63 @@
-use super::InstructionError;
 use super::LookupSwitch;
 use super::TableSwitch;
+use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
 use crate::xreturn;
 
 /// `goto` jumps to another instruction.
-pub fn goto(thread: &mut Thread, offset: i16) -> Result<(), InstructionError> {
-    thread.pc = (thread.pc as i32 + offset as i32) as usize;
-    Ok(())
+pub fn goto(thread: &mut Thread, offset: i16) -> Result<InstructionSuccess, InstructionError> {
+    Ok(InstructionSuccess::JumpRelative(offset as isize))
 }
 
 /// `goto_w` (wide variant) jumps to another instruction.
-pub fn goto_w(thread: &mut Thread, offset: i32) -> Result<(), InstructionError> {
-    thread.pc = (thread.pc as i32 + offset) as usize;
-    Ok(())
+pub fn goto_w(thread: &mut Thread, offset: i32) -> Result<InstructionSuccess, InstructionError> {
+    Ok(InstructionSuccess::JumpRelative(offset as isize))
 }
 
 /// `jsr` pushes the address of the next instruction onto the stack and jumps to another instruction.
 ///
 /// The address of the next instruction is pushed onto the stack as a return address, 32-bit value.
-pub fn jsr(thread: &mut Thread, offset: i16) -> Result<(), InstructionError> {
+pub fn jsr(thread: &mut Thread, offset: i16) -> Result<InstructionSuccess, InstructionError> {
     let pc = thread.pc as u32;
     let frame = thread.current_frame_mut().unwrap();
     frame
         .operand_stack
         .push(Slot::ReturnAddress((pc + 3) as u32));
-    thread.pc = (pc as i32 + offset as i32) as usize;
-    Ok(())
+    Ok(InstructionSuccess::JumpRelative(offset as isize))
 }
 
 /// `jsr_w` (wide variant) pushes the address of the next instruction onto the
 /// stack and jumps to another instruction.
 ///
 /// The address of the next instruction is pushed onto the stack as a return address, 32-bit value.
-pub fn jsr_w(thread: &mut Thread, offset: i32) -> Result<(), InstructionError> {
+pub fn jsr_w(thread: &mut Thread, offset: i32) -> Result<InstructionSuccess, InstructionError> {
     let pc = thread.pc as u32;
     let frame = thread.current_frame_mut().unwrap();
     frame
         .operand_stack
         .push(Slot::ReturnAddress((pc + 5) as u32));
-    thread.pc = (pc as i32 + offset) as usize;
-    Ok(())
+    Ok(InstructionSuccess::JumpRelative(offset as isize))
 }
 
 /// `ret` returns from a subroutine.
 ///
 /// The index is an unsigned byte that must be an index into the local variable array of the current frame.
-pub fn ret(thread: &mut Thread, index: u8) -> Result<(), InstructionError> {
+pub fn ret(thread: &mut Thread, index: u8) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let Slot::ReturnAddress(address) = frame.local_variables[index as usize] else {
         return Err(InstructionError::InvalidState {
             context: format!("Expected return address at index {}", index),
         });
     };
-    thread.pc = address as usize;
-    Ok(())
+    Ok(InstructionSuccess::JumpAbsolute(address as usize))
 }
 
 /// `tableswitch` accesses jump table by index and jumps.
-pub fn tableswitch(thread: &mut Thread, table: &TableSwitch) -> Result<(), InstructionError> {
+pub fn tableswitch(
+    thread: &mut Thread,
+    table: &TableSwitch,
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let index = frame.operand_stack.pop().unwrap();
     let offset = match index {
@@ -76,12 +74,14 @@ pub fn tableswitch(thread: &mut Thread, table: &TableSwitch) -> Result<(), Instr
             })
         }
     };
-    thread.pc = (thread.pc as i32 + offset as i32) as usize;
-    Ok(())
+    Ok(InstructionSuccess::JumpRelative(offset as isize))
 }
 
 /// `lookupswitch` accesses jump table by key match and jumps.
-pub fn lookupswitch(thread: &mut Thread, table: &LookupSwitch) -> Result<(), InstructionError> {
+pub fn lookupswitch(
+    thread: &mut Thread,
+    table: &LookupSwitch,
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let key = frame.operand_stack.pop().unwrap();
     let offset = match key {
@@ -98,22 +98,23 @@ pub fn lookupswitch(thread: &mut Thread, table: &LookupSwitch) -> Result<(), Ins
             })
         }
     };
-    thread.pc = (thread.pc as i32 + offset as i32) as usize;
-    Ok(())
+    Ok(InstructionSuccess::JumpRelative(offset as isize))
 }
 
 /// `return` returns void from a method.
-pub fn vreturn(thread: &mut Thread) -> Result<(), InstructionError> {
+pub fn vreturn(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
     thread.pop_frame();
     // TODO: implement monitor strategy for synchronized methods
-    let frame = thread.current_frame_mut().unwrap();
-    let Some(Slot::InvokationReturnAddress(pc)) = frame.operand_stack.pop() else {
-        return Err(InstructionError::InvalidState {
-            context: "Expected invokation return address on the operand stack".into(),
-        });
-    };
-    thread.pc = pc as usize;
-    Ok(())
+    if let Some(frame) = thread.current_frame_mut() {
+        let Some(Slot::InvokationReturnAddress(pc)) = frame.operand_stack.pop() else {
+            return Err(InstructionError::InvalidState {
+                context: "Expected invokation return address on the operand stack".into(),
+            });
+        };
+        Ok(InstructionSuccess::FrameChange(pc as usize))
+    } else {
+        Ok(InstructionSuccess::Completed)
+    }
 }
 
 // TODO: ireturn actually checks the method type to cast properly the returned value to the correct type
@@ -129,7 +130,7 @@ mod macros {
     macro_rules! xreturn {
         ($name:ident, $ty:ident) => {
             /// Return a value from a method.
-            pub fn $name(thread: &mut Thread) -> Result<(), InstructionError> {
+            pub fn $name(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
                 let prev_frame = thread.pop_frame().unwrap();
                 // TODO: implement monitor strategy for synchronized methods
                 if let Some(Slot::$ty(value)) = prev_frame.operand_stack.last() {
@@ -141,8 +142,7 @@ mod macros {
                         });
                     };
                     frame.operand_stack.push(Slot::$ty(*value));
-                    thread.pc = pc as usize;
-                    Ok(())
+                    Ok(InstructionSuccess::FrameChange(pc as usize))
                 } else {
                     return Err(InstructionError::InvalidState {
                         context: format!("Expected {:?} on the operand stack", stringify!($ty)),

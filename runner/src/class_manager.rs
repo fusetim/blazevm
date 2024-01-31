@@ -1,6 +1,7 @@
 use std::{cell::OnceCell, collections::HashMap};
 
-use reader::base::ClassFile;
+use flagset::FlagSet;
+use reader::base::{classfile::ClassAccessFlags, ClassFile};
 
 use crate::{
     class::{self, Class, ClassId},
@@ -99,7 +100,7 @@ impl ClassManager {
                                 name: loading.class_name.clone(),
                                 superclass: superclass.map(|x| x.id).unwrap_or(ClassId(0)),
                                 interfaces: interfaces.iter().map(|x| x.id).collect(),
-                                // flags: loading.flags,
+                                flags: loading.flags,
                                 constant_pool: loading.constant_pool.clone(),
                                 fields: loading.fields.clone(),
                                 methods: loading.methods.clone(),
@@ -167,7 +168,7 @@ impl ClassManager {
             class_name: class_name.to_string(),
             super_class: super_name.map(String::from),
             interfaces: interfaces.iter().map(|x| x.to_string()).collect(),
-            // flags,
+            flags: classfile.access_flags().clone(),
             constant_pool: ConstantPool::from_classfile(self, classfile.constant_pool())?,
             class_dependencies: dependencies,
             fields: classfile
@@ -216,7 +217,7 @@ pub struct LoadingClass {
     pub class_name: String,
     pub super_class: Option<String>,
     pub interfaces: Vec<String>,
-    //pub flags: FlagSet<ClassAccessFlags>,
+    pub flags: FlagSet<ClassAccessFlags>,
     pub constant_pool: ConstantPool,
     pub class_dependencies: Vec<String>,
     pub fields: Vec<class::Field>,
