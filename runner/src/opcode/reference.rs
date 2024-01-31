@@ -47,6 +47,16 @@ pub fn getstatic(
             ),
         });
     };
+
+    if !field.is_static() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field is not static: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field_name, field_descriptor
+            ),
+        });
+    }
+
     let Some(value) = field.get_value() else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -109,7 +119,25 @@ pub fn putstatic(
             ),
         });
     };
-    // TODO: Check the field is actually STATIC and not FINAL (or else we should be in <clinit>)
+
+    if !field.is_static() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field is not static: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field_name, field_descriptor
+            ),
+        });
+    }
+
+    if field.is_final() && impl_class.initialized.get().is_some() && *impl_class.initialized.get().unwrap() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field is final and class is already initialized: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field_name, field_descriptor
+            ),
+        });
+    }
+
     let Some(value) = frame.operand_stack.pop() else {
         return Err(InstructionError::InvalidState {
             context: format!("Operand stack is empty"),

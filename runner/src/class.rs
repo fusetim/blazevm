@@ -152,6 +152,21 @@ impl Field {
         // TODO: Check if the field is static
         Some(&self.value)
     }
+
+    /// Get flags of the field.
+    pub fn get_flags(&self) -> &FlagSet<FieldAccessFlags> {
+        &self.flags
+    }
+
+    /// Check if the field is static.
+    pub fn is_static(&self) -> bool {
+        self.flags.contains(FieldAccessFlags::Static)
+    }
+
+    /// Check if the field is final.
+    pub fn is_final(&self) -> bool {
+        self.flags.contains(FieldAccessFlags::Final)
+    }
 }
 
 #[derive(Debug, Clone)]
