@@ -11,7 +11,7 @@ use cesu8::from_java_cesu8;
 /// or a field or litteral constants such as strings, integers, floats, etc.
 ///
 /// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.4>
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big, import(count: U2))]
 pub struct ConstantPool(
     #[br(parse_with = parse_constant_pool, args(count))] pub Vec<ConstantPoolEntry>,
@@ -20,6 +20,9 @@ pub struct ConstantPool(
 impl ConstantPool {
     /// Get the [ConstantPoolEntry] at the given index.
     pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        if index == 0 || index >= self.0.len() {
+            return None;
+        }
         self.0.get(index - 1)
     }
 
@@ -79,7 +82,7 @@ impl ConstantPool {
 /// pool. Indeed those long entries take two slots in the constant pool, and
 /// therefore to keep the same indexing, we need to mark the second slot as
 /// a tombstone.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstantPoolEntry {
     /// A real entry in the constant pool
     Entry(ConstantPoolInfo),
@@ -100,7 +103,7 @@ pub enum ConstantPoolEntry {
 /// representation to ours.
 ///
 /// Ref: <https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-4.html#jvms-4.4>
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstantPoolInfo {
     /// ClassInfo entry, see [ClassInfo].
     ClassInfo(ClassInfo),
@@ -127,7 +130,7 @@ pub enum ConstantPoolInfo {
 ///
 /// It gives the index in the [ConstantPool] of a [Utf8Info] entry,
 /// describing a valid binary name for the current class/interface/module.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct ClassInfo {
     name_index: U2,
@@ -140,7 +143,7 @@ impl ClassInfo {
 }
 
 /// Utf8Info is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct Utf8Info {
     // tag: U1,
@@ -162,7 +165,7 @@ impl Utf8Info {
 }
 
 /// FieldRefInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct FieldRefInfo {
     // tag: U1,
@@ -177,7 +180,7 @@ pub struct FieldRefInfo {
 }
 
 /// MethodRefInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct MethodRefInfo {
     // tag: U1,
@@ -192,7 +195,7 @@ pub struct MethodRefInfo {
 }
 
 /// InterfaceMethodRefInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct InterfaceMethodRefInfo {
     // tag: U1,
@@ -207,7 +210,7 @@ pub struct InterfaceMethodRefInfo {
 }
 
 /// StringInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct StringInfo {
     // tag: U1,
@@ -217,7 +220,7 @@ pub struct StringInfo {
 }
 
 /// IntegerInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct IntegerInfo {
     // tag: U1,
@@ -233,7 +236,7 @@ impl IntegerInfo {
 }
 
 /// LongInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct LongInfo {
     // tag: U1,
@@ -249,7 +252,7 @@ impl LongInfo {
 }
 
 /// FloatInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct FloatInfo {
     // tag: U1,
@@ -265,7 +268,7 @@ impl FloatInfo {
 }
 
 /// DoubleInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct DoubleInfo {
     // tag: U1,
@@ -281,7 +284,7 @@ impl DoubleInfo {
 }
 
 /// NameAndTypeInfo is a [ConstantPool] entry.
-#[derive(BinRead, Debug)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct NameAndTypeInfo {
     // tag: U1,

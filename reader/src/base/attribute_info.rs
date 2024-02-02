@@ -2,7 +2,7 @@ use super::{stack_frame::parse_stack_map_frame, StackMapFrame, U1, U2, U4};
 use binrw::{BinRead, BinResult};
 use flagset::{flags, FlagSet};
 
-#[derive(BinRead)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct AttributeInfo {
     /// Unqualified name denoting the attribute.

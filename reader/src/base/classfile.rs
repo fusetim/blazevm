@@ -9,7 +9,7 @@ use flagset::{flags, FlagSet};
 ///
 /// The classfile structure represents the entire class file read.
 /// Note: One class or module is always represented by one class file.
-#[derive(BinRead)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct ClassFile {
     /// Magic number identifying the class file format
@@ -144,7 +144,7 @@ impl ClassFile {
     }
 }
 
-#[derive(BinRead)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct FieldInfo {
     /// Access flags denoting the permissions and properties of this field.
@@ -163,7 +163,7 @@ pub struct FieldInfo {
     pub attributes: Vec<AttributeInfo>,
 }
 
-#[derive(BinRead)]
+#[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct MethodInfo {
     /// Access flags denoting the permissions and properties of this method.

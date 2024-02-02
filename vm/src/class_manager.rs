@@ -33,8 +33,8 @@ pub struct ClassManager {
     /// The classes loaded by this class manager, indexed by their ID.
     pub classes_by_id: HashMap<ClassId, LoadedClass>,
 
-    /// The classes loaded by this class manager, indexed by their name.
-    pub classes_by_name: HashMap<String, LoadedClass>,
+    /// The mapping between class names and their ID.
+    pub name_map: HashMap<String, ClassId>,
 
     /// The next class ID to use.
     next_class_id: ClassId,
@@ -45,7 +45,7 @@ impl ClassManager {
         Self {
             class_loader,
             classes_by_id: HashMap::new(),
-            classes_by_name: HashMap::new(),
+            name_map: HashMap::new(),
             next_class_id: ClassId(0),
         }
     }
@@ -83,25 +83,49 @@ impl ClassManager {
         self.classes_by_id.get_mut(&id)
     }
 
+    pub fn get_class_by_name(&self, name: &str) -> Option<&LoadedClass> {
+        self.name_map.get(name).and_then(|id| self.classes_by_id.get(id))
+    }
+
+    pub fn id_of_class(&self, name: &str) -> Option<ClassId> {
+        self.name_map.get(name).cloned()
+    }
+
     pub fn get_or_resolve_class(
         &mut self,
         class_name: &str,
     ) -> Result<&LoadedClass, ClassLoadingError> {
-        if !self.classes_by_name.contains_key(class_name) {
+        if !self.name_map.contains_key(class_name) {
             let mut init_thread = Thread::new();
             let mut stack: Vec<String> = Vec::new();
             stack.push(class_name.to_string());
             while let Some(class_name) = stack.pop() {
                 log::debug!("Resolving class: {}", &class_name);
-                if let Some(class) = self.classes_by_name.get(&class_name) {
+                if let Some(class) = self.get_class_by_name(&class_name) {
                     let class = class.clone();
                     match class {
                         LoadedClass::Loaded(_) => (),
                         LoadedClass::Loading(loading) => {
+                            // Check if the class dependencies have been resolved.
+                            let mut unresolved = Vec::new();
+                            for dependency in &loading.class_dependencies {
+                                if !self.name_map.contains_key(dependency) {
+                                    unresolved.push(dependency.clone());
+                                }
+                            }
+                            // If want to resolve them first.
+                            if !unresolved.is_empty() {
+                                stack.push(class_name);
+                                for dependency in unresolved {
+                                    stack.push(dependency);
+                                }
+                                continue;
+                            }
+
                             // We will assume that the supe classes and interfaces have been loaded from now on.
                             // Therefore we just have to create the real loaded class.
                             let superclass = if let Some(superclass_name) = &loading.super_class {
-                                match self.classes_by_name.get(superclass_name) {
+                                match self.get_class_by_name(superclass_name) {
                                     Some(class) => match class {
                                         LoadedClass::Loaded(class) => Some(class.clone()),
                                         LoadedClass::Loading(_) => {
@@ -116,7 +140,7 @@ impl ClassManager {
 
                             let mut interfaces = Vec::new();
                             for interface_name in &loading.interfaces {
-                                match self.classes_by_name.get(interface_name) {
+                                match self.get_class_by_name(interface_name) {
                                     Some(class) => match class {
                                         LoadedClass::Loaded(class) => {
                                             interfaces.push(class.clone())
@@ -149,9 +173,8 @@ impl ClassManager {
                             let loaded_class = LoadedClass::Loaded(class);
 
                             // Update the class manager with the fully loaded class.
-                            let _ = self
-                                .classes_by_name
-                                .insert(class_name.clone(), loaded_class.clone());
+                            let _ = self.name_map
+                                .insert(class_name.clone(), loaded_class.id());
                             let _ = self
                                 .classes_by_id
                                 .insert(loading.class_id, loaded_class.clone());
@@ -167,28 +190,21 @@ impl ClassManager {
                     }
                 } else {
                     let classfile = self.class_loader.load_classfile(&class_name)?;
-                    let loaded_class = self.resolve_class(classfile)?;
-                    self.classes_by_name
-                        .insert(class_name.clone(), loaded_class.clone());
-                    self.classes_by_id
-                        .insert(loaded_class.id(), loaded_class.clone());
-                    self.next_class_id = ClassId(self.next_class_id.0 + 1);
-                    if let LoadedClass::Loading(loading) = loaded_class {
-                        stack.push(class_name);
-                        for dependency in &loading.class_dependencies {
-                            stack.push(dependency.clone());
-                        }
-                    }
+                    self.resolve_class(classfile)?;
                 }
             }
         }
-        Ok(self.classes_by_name.get(class_name).unwrap())
+        Ok(self.get_class_by_name(class_name).unwrap())
     }
 
+
+    /// Load a class from a classfile, and resolve its dependencies.
+    ///
+    /// This method will produces a ResolvedClass, with all its dependencies calculated.
     pub fn resolve_class(
         &mut self,
         classfile: ClassFile,
-    ) -> Result<LoadedClass, ClassLoadingError> {
+    ) -> Result<ClassId, ClassLoadingError> {
         let class_name = classfile.class_name()?;
         let class_id = self.next_class_id;
         let super_name = classfile.super_class_name()?;
@@ -229,7 +245,7 @@ impl ClassManager {
                             },
                         });
                     };
-                    if self.classes_by_name.contains_key(&class_name.to_string()) {
+                    if self.name_map.contains_key(&class_name.to_string()) {
                         continue;
                     }
                     if dependencies.contains(&class_name.to_string()) {
@@ -240,7 +256,7 @@ impl ClassManager {
             }
         }
 
-        Ok(LoadedClass::Loading(LoadingClass {
+        let loaded_class = LoadedClass::Loading(LoadingClass {
             class_id,
             class_name: class_name.to_string(),
             super_class: super_name.map(String::from),
@@ -262,7 +278,15 @@ impl ClassManager {
                     class::Method::try_from_classfile(self, classfile.constant_pool(), method)
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-        }))
+        });
+
+        self.name_map
+            .insert(class_name.to_string(), loaded_class.id());
+        self.classes_by_id
+            .insert(loaded_class.id(), loaded_class);
+        self.next_class_id = ClassId(self.next_class_id.0 + 1);
+
+        Ok(class_id)
     }
 }
 
@@ -299,4 +323,12 @@ pub struct LoadingClass {
     pub class_dependencies: Vec<String>,
     pub fields: Vec<class::Field>,
     pub methods: Vec<class::Method>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResovedClass {
+    pub class_id: ClassId,
+    pub class_name: String,
+    pub classfile: ClassFile,
+    pub class_dependencies: Vec<String>,
 }

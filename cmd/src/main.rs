@@ -38,7 +38,7 @@ fn main() {
         let class_path = ClassPathDirEntry::new(classpath);
         class_loader.add_class_path_entry(Box::new(class_path));
     }
-    log::info!("Running Main class: {}", opts.main_class);
+    log::info!("Loading Main class: {}", opts.main_class);
     let mut vm = Vm::new(class_loader);
     let main_name: String = opts.main_class.as_binary_name();
     let thread_id = match vm.class_manager_mut().get_or_resolve_class(&main_name) {

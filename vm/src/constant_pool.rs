@@ -32,6 +32,9 @@ impl ConstantPool {
     }
 
     pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        if index == 0 || index >= self.mappings.len() {
+            return None;
+        }
         let map = self.mappings.get(index)?;
         self.entries.get(*map)
     }
@@ -88,9 +91,9 @@ impl ConstantPool {
                                 index: info.name_and_type_index as usize,
                             })?;
                         let implementor = cm
-                            .get_or_resolve_class(&class_name)
-                            .map_err(|err| {
-                                log::debug!(target:"rt::constantpool::fieldref", "Class loading failure (name: {}): {}", &class_name, err);
+                            .id_of_class(&class_name)
+                            .ok_or_else(|| {
+                                log::debug!(target:"rt::constantpool::fieldref", "Class loading failure (name: {})", &class_name);
                                 ConstantPoolError::ClassLoadingFailure {
                                     class_name: class_name.to_string(),
                                     context: Some(format!("FieldRefInfo (name: {}, descriptor: {}) at index {}", field_name, field_descriptor, info.name_and_type_index as usize))
@@ -106,7 +109,7 @@ impl ConstantPool {
                         cp.append(ConstantPoolEntry::FieldReference {
                             field_name: field_name.to_string(),
                             field_descriptor: descriptor,
-                            implementor: implementor.id(),
+                            implementor,
                         });
                     }
                     ClassfileConstantPoolInfo::MethodRefInfo(info) => {
@@ -121,9 +124,9 @@ impl ConstantPool {
                                 index: info.name_and_type_index as usize,
                             })?;
                         let implementor = cm
-                            .get_or_resolve_class(&class_name)
-                            .map_err(|err| {
-                                log::debug!(target:"rt::constantpool::methodref", "Class loading failure (name: {}): {}", &class_name, err);
+                            .id_of_class(&class_name)
+                            .ok_or_else(|| {
+                                log::debug!(target:"rt::constantpool::methodref", "Class loading failure (name: {})", &class_name);
                                 ConstantPoolError::ClassLoadingFailure {
                                     class_name: class_name.to_string(),
                                     context: Some(format!("MethodRefInfo (name: {}, descriptor: {}) at index {}", method_name, method_descriptor, info.name_and_type_index as usize))
@@ -139,7 +142,7 @@ impl ConstantPool {
                         cp.append(ConstantPoolEntry::MethodReference {
                             method_name: method_name.to_string(),
                             method_descriptor: descriptor,
-                            implementor: implementor.id(),
+                            implementor,
                         });
                     }
                     ClassfileConstantPoolInfo::InterfaceMethodRefInfo(info) => {
@@ -154,9 +157,9 @@ impl ConstantPool {
                                 index: info.name_and_type_index as usize,
                             })?;
                         let implementor = cm
-                            .get_or_resolve_class(&class_name)
-                            .map_err(|err| {
-                                log::debug!(target:"rt::constantpool::interfacemethodref", "Class loading failure (name: {}): {}", &class_name, err);
+                            .id_of_class(&class_name)
+                            .ok_or_else(|| {
+                                log::debug!(target:"rt::constantpool::interfacemethodref", "Class loading failure (name: {})", &class_name);
                                 ConstantPoolError::ClassLoadingFailure {
                                     class_name: class_name.to_string(),
                                     context: Some(format!("InterfaceMethodRefInfo (name: {}, descriptor: {}) at index {}", method_name, method_descriptor, info.name_and_type_index as usize))
@@ -172,7 +175,7 @@ impl ConstantPool {
                         cp.append(ConstantPoolEntry::InterfaceMethodReference {
                             method_name: method_name.to_string(),
                             method_descriptor: descriptor,
-                            implementor: implementor.id(),
+                            implementor,
                         });
                     },
                     _ => {
