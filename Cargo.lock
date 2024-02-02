@@ -389,6 +389,7 @@ dependencies = [
  "cesu8",
  "dumpster",
  "flagset",
+ "log",
  "nom",
  "snafu",
 ]

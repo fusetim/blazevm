@@ -20,7 +20,7 @@ pub struct ConstantPool(
 impl ConstantPool {
     /// Get the [ConstantPoolEntry] at the given index.
     pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
-        if index == 0 || index >= self.0.len() {
+        if index == 0 {
             return None;
         }
         self.0.get(index - 1)
@@ -38,7 +38,10 @@ impl ConstantPool {
     pub fn get_utf8_string<'a>(&'a self, index: usize) -> Option<Cow<'a, str>> {
         match self.get_info(index) {
             Some(ConstantPoolInfo::Utf8Info(utf8)) => utf8.to_string(),
-            _ => None,
+            _ => {
+                log::warn!("Invalid Utf8 info at index {}, found: {:?}", index, self.get(index));
+                None
+            },
         }
     }
 
@@ -48,7 +51,10 @@ impl ConstantPool {
             Some(ConstantPoolInfo::ClassInfo(class)) => {
                 self.get_utf8_string(class.name_index as usize)
             }
-            _ => None,
+            _ => {
+                log::warn!("Invalid class info at index {}, found: {:?}", index, self.get(index));
+                None
+            },
         }
     }
 
@@ -143,7 +149,7 @@ impl ClassInfo {
 }
 
 /// Utf8Info is a [ConstantPool] entry.
-#[derive(BinRead, Debug, Clone)]
+#[derive(BinRead, Clone)]
 #[br(big)]
 pub struct Utf8Info {
     // tag: U1,
@@ -161,6 +167,15 @@ impl Utf8Info {
     /// If the conversion fails, None is returned.
     pub fn to_string<'a>(&'a self) -> Option<Cow<'a, str>> {
         from_java_cesu8(self.bytes.as_slice()).ok()
+    }
+}
+
+impl std::fmt::Debug for Utf8Info {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.to_string() {
+            Some(s) => write!(f, "Utf8Info(\"{}\")", s.to_string()),
+            None => write!(f, "Utf8Info({:?})", self.bytes),
+        }
     }
 }
 

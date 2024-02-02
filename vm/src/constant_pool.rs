@@ -179,7 +179,7 @@ impl ConstantPool {
                         });
                     },
                     _ => {
-                        log::debug!("Constant pool entry not necessary or unimplemented, ignored in RT ConstanPool: {:?}", entry);
+                        log::trace!("Constant pool entry not necessary or unimplemented, ignored in RtConstantPool: {:?}", entry);
                     }
                 }
                 cp.mappings.push(cp.entries.len());

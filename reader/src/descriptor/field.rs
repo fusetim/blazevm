@@ -14,6 +14,23 @@ impl FieldDescriptor {
     pub fn field_type(&self) -> &FieldType {
         &self.0
     }
+
+    /// Get the class name of the referenced class
+    ///
+    /// If the field type is an object type, return the class name of the object type.
+    /// If is an (multi-)array type, return the referenced class name of the item type if it exists.
+    pub fn get_referenced_class(&self) -> Option<&ClassName> {
+        let mut field_type = &self.0;
+        loop {
+            match field_type {
+                FieldType::BaseType(_) => return None,
+                FieldType::ObjectType(object_type) => return Some(&object_type.class_name),
+                FieldType::ArrayType(array_type) => {
+                    field_type = array_type.item.as_ref();
+                }
+            }
+        }
+    }
 }
 
 /// Field type representation

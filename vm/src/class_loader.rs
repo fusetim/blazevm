@@ -117,7 +117,7 @@ pub enum ClassLoadingError {
     ConstantPoolLoadingError { source: ConstantPoolError },
 
     #[snafu(context(false))]
-    #[snafu(display("Bad descriptor {}", source))]
+    #[snafu(display("Bad descriptor: {}", source))]
     BadDescriptor {
         source: reader::descriptor::DescriptorError,
     },

@@ -290,15 +290,30 @@ pub fn parse_field_attribute(
                     Ok(Some(FieldAttribute::ConstantValue {
                         value: ConstantValue::Integer(info.value()),
                     }))
-                }
-                _ => unimplemented!(),
+                },
+                ClassfileConstantPoolInfo::LongInfo(info) => {
+                    Ok(Some(FieldAttribute::ConstantValue {
+                        value: ConstantValue::Long(info.value()),
+                    }))
+                },
+                ClassfileConstantPoolInfo::FloatInfo(info) => {
+                    Ok(Some(FieldAttribute::ConstantValue {
+                        value: ConstantValue::Float(info.value()),
+                    }))
+                },
+                ClassfileConstantPoolInfo::DoubleInfo(info) => {
+                    Ok(Some(FieldAttribute::ConstantValue {
+                        value: ConstantValue::Double(info.value()),
+                    }))
+                },
+                _ => unimplemented!("ConstantValue attribute with type: {:?}", value),
             }
         }
         "Synthetic" => Ok(Some(FieldAttribute::Synthetic)),
         "Deprecated" => Ok(Some(FieldAttribute::Deprecated)),
         _ => {
             log::debug!(
-                "Field attribute not implemented/unknown, ingnored: {:?}",
+                "Field attribute not implemented/unknown, ignored: {:?}",
                 &name
             );
             Ok(None)
@@ -331,7 +346,7 @@ pub fn parse_method_attribute(
         "Deprecated" => Ok(Some(MethodAttribute::Deprecated)),
         _ => {
             log::debug!(
-                "Method attribute not implemented/unknown, ingnored: {:?}",
+                "Method attribute not implemented/unknown, ignored: {:?}",
                 &name
             );
             Ok(None)
