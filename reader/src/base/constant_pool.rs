@@ -133,6 +133,12 @@ pub struct ClassInfo {
     name_index: U2,
 }
 
+impl ClassInfo {
+    pub fn name_index(&self) -> usize {
+        self.name_index as usize
+    }
+}
+
 /// Utf8Info is a [ConstantPool] entry.
 #[derive(BinRead, Debug)]
 #[br(big)]

@@ -1,10 +1,20 @@
 use std::{cell::OnceCell, collections::HashMap};
 
 use flagset::FlagSet;
-use reader::{base::{classfile::ClassAccessFlags, ClassFile}, descriptor::{self, MethodDescriptor}};
+use reader::{
+    base::{
+        classfile::ClassAccessFlags,
+        constant_pool::{ConstantPoolEntry, ConstantPoolInfo},
+        ClassFile,
+    },
+    descriptor::{self, MethodDescriptor},
+};
 
 use crate::{
-    class::{self, Class, ClassId}, class_loader::{ClassLoader, ClassLoadingError, DerivingError}, constant_pool::ConstantPool, thread::{ExecutionError, Frame, Thread}
+    class::{self, Class, ClassId},
+    class_loader::{ClassLoader, ClassLoadingError, DerivingError},
+    constant_pool::{ConstantPool, ConstantPoolError},
+    thread::{ExecutionError, Frame, Thread},
 };
 
 const CLINIT_DESCRIPTOR: MethodDescriptor = MethodDescriptor {
@@ -40,7 +50,11 @@ impl ClassManager {
         }
     }
 
-    fn execute_class_init(&mut self, thread: &mut Thread, class_id: &ClassId) -> Result<(), ExecutionError> {
+    fn execute_class_init(
+        &mut self,
+        thread: &mut Thread,
+        class_id: &ClassId,
+    ) -> Result<(), ExecutionError> {
         thread.reset();
         let clid = {
             let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(class_id) else {
@@ -142,7 +156,9 @@ impl ClassManager {
                                 .insert(loading.class_id, loaded_class.clone());
 
                             // Invoke the class initializer.
-                            if let Err(err) = self.execute_class_init(&mut init_thread, &loading.class_id) {
+                            if let Err(err) =
+                                self.execute_class_init(&mut init_thread, &loading.class_id)
+                            {
                                 return Err(ClassLoadingError::InitializerError { source: err });
                             }
                         }
@@ -189,6 +205,23 @@ impl ClassManager {
                 class_name: class_name.to_string(),
             }
             .into());
+        }
+
+        // Preloading Class/Interface referenced in the ConstantPool.
+        for entry in classfile.constant_pool().inner() {
+            if let ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(class_ref)) = entry {
+                let Some(class_name) = classfile
+                    .constant_pool()
+                    .get_utf8_string(class_ref.name_index())
+                else {
+                    return Err(ClassLoadingError::ConstantPoolLoadingError {
+                        source: ConstantPoolError::InvalidUtf8StringReference {
+                            index: class_ref.name_index(),
+                        },
+                    });
+                };
+                dependencies.push(class_name.to_string());
+            }
         }
 
         Ok(LoadedClass::Loading(LoadingClass {

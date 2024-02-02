@@ -1,7 +1,5 @@
 use crate::{
-    class_loader::{ClassLoader},
-    class_manager::ClassManager,
-    thread_manager::ThreadManager,
+    class_loader::ClassLoader, class_manager::ClassManager, thread_manager::ThreadManager,
 };
 
 #[derive(Debug)]
@@ -12,7 +10,7 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(cl : ClassLoader) -> Self {
+    pub fn new(cl: ClassLoader) -> Self {
         Self {
             class_manager: ClassManager::new(cl),
             thread_manager: ThreadManager::new(),

@@ -23,7 +23,10 @@ impl Thread {
         }
     }
 
-    pub fn execute(&mut self, class_manager: &mut class_manager::ClassManager) -> Result<(), ExecutionError> {
+    pub fn execute(
+        &mut self,
+        class_manager: &mut class_manager::ClassManager,
+    ) -> Result<(), ExecutionError> {
         while let Some(frame) = self.current_frame_mut() {
             let LoadedClass::Loaded(class) = class_manager.get_class_by_id(frame.class).unwrap()
             else {
@@ -126,7 +129,6 @@ impl Frame {
     }
 }
 
-
 /// Errors that can occur during execution of a thread
 #[derive(Debug, Snafu)]
 pub enum ExecutionError {
@@ -140,9 +142,13 @@ pub enum ExecutionError {
 
     /// Impossible to parse the current instruction
     #[snafu(display("Error parsing instruction, source: {}", source))]
-    InstructionParseError { source: crate::opcode::InstructionError },
+    InstructionParseError {
+        source: crate::opcode::InstructionError,
+    },
 
     /// Error occured during execution of an instruction
     #[snafu(display("Error executing instruction, source: {}", source))]
-    InstructionExecutionError { source: crate::opcode::InstructionError },
+    InstructionExecutionError {
+        source: crate::opcode::InstructionError,
+    },
 }

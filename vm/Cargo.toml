@@ -1,5 +1,5 @@
 [package]
-name = "runner"
+name = "vm"
 authors = ["fusetim"]
 version = "0.1.0"
 edition = "2021"

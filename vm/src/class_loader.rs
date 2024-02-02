@@ -1,5 +1,8 @@
 use crate::{constant_pool::ConstantPoolError, thread::ExecutionError};
-use reader::base::{ClassFile, DecodingError, ParsingError};
+use reader::{
+    base::{ClassFile, DecodingError, ParsingError},
+    descriptor::{self, ClassName},
+};
 use snafu::Snafu;
 use std::fmt::Debug;
 
@@ -27,7 +30,8 @@ impl ClassLoader {
 
     /// Load a class from this class loader.
     pub fn load_classfile(&mut self, class_name: &str) -> Result<ClassFile, ClassLoadingError> {
-        let bytes = self.class_path.read_class(class_name)?;
+        let parsed_name = descriptor::parse_class_name(class_name)?;
+        let bytes = self.class_path.read_class(&parsed_name)?;
         match ClassFile::from_bytes(&bytes) {
             Ok(classfile) => Ok(classfile),
             Err(e) => Err(e.into()),
@@ -60,7 +64,7 @@ impl ClassPath {
     /// Read a classfile from this class path.
     ///
     /// Returns the bytes of the classfile, or an error if the classfile could not be found or loaded.
-    pub fn read_class(&self, name: &str) -> Result<Vec<u8>, ClassLoadingError> {
+    pub fn read_class(&self, name: &ClassName) -> Result<Vec<u8>, ClassLoadingError> {
         for entry in &self.entries {
             match entry.read_class(name) {
                 Ok(bytes) => return Ok(bytes),
@@ -80,7 +84,7 @@ pub trait ClassPathEntry: Debug {
     /// Read a classfile from this class path entry.
     ///
     /// Returns the bytes of the classfile, or an error if the classfile could not be found or loaded.
-    fn read_class(&self, name: &str) -> Result<Vec<u8>, ClassLoadingError>;
+    fn read_class(&self, name: &ClassName) -> Result<Vec<u8>, ClassLoadingError>;
 }
 
 /// Class loading error.
@@ -154,10 +158,10 @@ impl ClassPathDirEntry {
 }
 
 impl ClassPathEntry for ClassPathDirEntry {
-    fn read_class(&self, name: &str) -> Result<Vec<u8>, ClassLoadingError> {
+    fn read_class(&self, name: &ClassName) -> Result<Vec<u8>, ClassLoadingError> {
         let mut path = self.path.clone();
-        for part in name.split(&['/', '.'][..]) {
-            path.push(part);
+        for part in name.parts() {
+            path.push(part.as_str());
         }
         path.set_extension("class");
         match std::fs::read(path) {

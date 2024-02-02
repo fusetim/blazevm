@@ -55,6 +55,21 @@ pub fn parse_method_descriptor(input: &str) -> Result<MethodDescriptor, Descript
     }
 }
 
+/// Parse a class name
+pub fn parse_class_name(input: &str) -> Result<ClassName, DescriptorError> {
+    let (rem, class) =
+        class::ClassName::parse(input).map_err(|_| DescriptorError::UndecodableDescriptor {
+            input: input.into(),
+        })?;
+    if rem.is_empty() {
+        Ok(class)
+    } else {
+        Err(DescriptorError::TooLongDescriptor {
+            input: input.into(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

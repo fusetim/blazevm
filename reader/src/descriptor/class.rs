@@ -1,4 +1,5 @@
 use nom::{bytes::complete::tag, character::complete::none_of, multi::many1, IResult};
+use std::fmt::Display;
 
 /// Classname representation
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -31,6 +32,16 @@ impl ClassName {
             .collect::<Vec<_>>()
             .join(".")
     }
+
+    pub fn parts(&self) -> &[UnqualifiedName] {
+        &self.parts
+    }
+}
+
+impl Display for ClassName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_source_name())
+    }
 }
 
 /// Unqualified name representation
@@ -49,5 +60,11 @@ impl UnqualifiedName {
 
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl Display for UnqualifiedName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
