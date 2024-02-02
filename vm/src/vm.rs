@@ -1,5 +1,5 @@
 use crate::{
-    class_loader::ClassLoader, class_manager::ClassManager, thread_manager::ThreadManager,
+    class_loader::ClassLoader, class_manager::ClassManager, thread::ExecutionError, thread_manager::ThreadManager
 };
 
 #[derive(Debug)]
@@ -31,5 +31,10 @@ impl Vm {
 
     pub fn thread_manager_mut(&mut self) -> &mut ThreadManager {
         &mut self.thread_manager
+    }
+
+    pub fn execute_thread(&mut self, thread_id: usize) -> Result<(), ExecutionError> {
+        let thread = self.thread_manager.get_thread_mut(thread_id).unwrap();
+        thread.execute(&mut self.class_manager)
     }
 }

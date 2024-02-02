@@ -1,4 +1,6 @@
-use crate::thread::Thread;
+use crate::{class::ClassId, thread::{Frame, Slot, Thread}};
+
+pub type ThreadId = usize;
 
 #[derive(Debug, Clone)]
 pub struct ThreadManager {
@@ -10,10 +12,19 @@ impl ThreadManager {
         Self { threads: vec![] }
     }
 
-    pub fn create_thread<'a>(&'a mut self) -> &'a Thread {
-        let thread = Thread::new();
+    pub fn create_thread<'a>(&'a mut self, class: &ClassId, method: usize, args: Vec<Slot>) -> ThreadId {
+        let mut thread = Thread::new();
+        thread.push_frame(Frame::new(*class, method, args.len()));
+        let mut pos = 0;
+        for arg in args {
+            if arg.size() > 1 {
+                pos += 1;
+            }
+            *thread.current_frame_mut().unwrap().get_local_variable_mut(pos).unwrap() = arg;
+            pos += 1;
+        }
         self.threads.push(thread);
-        self.threads.last().unwrap()
+        return self.threads.len() - 1;
     }
 
     pub fn get_thread(&self, index: usize) -> Option<&Thread> {

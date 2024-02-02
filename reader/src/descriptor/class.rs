@@ -1,5 +1,6 @@
-use nom::{bytes::complete::tag, character::complete::none_of, multi::many1, IResult};
-use std::fmt::Display;
+use nom::{branch::alt, bytes::complete::tag, character::complete::none_of, multi::many1, IResult};
+use std::{fmt::Display, str::FromStr};
+
 
 /// Classname representation
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -13,7 +14,7 @@ impl ClassName {
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        let (input, parts) = nom::multi::separated_list1(tag("/"), UnqualifiedName::parse)(input)?;
+        let (input, parts) = nom::multi::separated_list1(alt((tag("/"), tag("."))), UnqualifiedName::parse)(input)?;
         Ok((input, Self { parts }))
     }
 
@@ -41,6 +42,14 @@ impl ClassName {
 impl Display for ClassName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_source_name())
+    }
+}
+
+impl FromStr for ClassName {
+    type Err = super::DescriptorError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        super::parse_class_name(s)
     }
 }
 

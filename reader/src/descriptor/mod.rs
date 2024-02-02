@@ -17,7 +17,7 @@ pub enum DescriptorError {
     },
 
     #[snafu(display(
-        "Badly formated descriptor as it is longer than the parser decoded it, input:; {}",
+        "Badly formated descriptor as it is longer than the parser decoded it, input: '{}'",
         input
     ))]
     TooLongDescriptor { input: String },

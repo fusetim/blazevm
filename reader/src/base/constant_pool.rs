@@ -20,7 +20,7 @@ pub struct ConstantPool(
 impl ConstantPool {
     /// Get the [ConstantPoolEntry] at the given index.
     pub fn get(&self, index: usize) -> Option<&ConstantPoolEntry> {
-        self.0.get(index)
+        self.0.get(index - 1)
     }
 
     /// Get the [ConstantPoolInfo] at the given index.
@@ -297,7 +297,7 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
             ),
             x => unimplemented!("Constant pool tag {} not implemented", x),
         };
-        entries.push(dbg!(entry));
+        entries.push(entry);
         i += 1;
         if tombstone {
             entries.push(ConstantPoolEntry::Tombstone);
