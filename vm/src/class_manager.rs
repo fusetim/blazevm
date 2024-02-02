@@ -92,6 +92,7 @@ impl ClassManager {
             let mut stack: Vec<String> = Vec::new();
             stack.push(class_name.to_string());
             while let Some(class_name) = stack.pop() {
+                log::debug!("Resolving class: {}", &class_name);
                 if let Some(class) = self.classes_by_name.get(&class_name) {
                     let class = class.clone();
                     match class {
@@ -156,6 +157,7 @@ impl ClassManager {
                                 .insert(loading.class_id, loaded_class.clone());
 
                             // Invoke the class initializer.
+                            log::debug!("Invoking class initializer for {}", &loading.class_name);
                             if let Err(err) =
                                 self.execute_class_init(&mut init_thread, &loading.class_id)
                             {
@@ -208,19 +210,33 @@ impl ClassManager {
         }
 
         // Preloading Class/Interface referenced in the ConstantPool.
-        for entry in classfile.constant_pool().inner() {
-            if let ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(class_ref)) = entry {
-                let Some(class_name) = classfile
-                    .constant_pool()
-                    .get_utf8_string(class_ref.name_index())
-                else {
-                    return Err(ClassLoadingError::ConstantPoolLoadingError {
-                        source: ConstantPoolError::InvalidUtf8StringReference {
-                            index: class_ref.name_index(),
-                        },
-                    });
-                };
-                dependencies.push(class_name.to_string());
+        // Exception for java/lang/Object, which is the root of the class hierarchy.
+        if dbg!(&class_name) != "java/lang/Object" {
+            for entry in classfile.constant_pool().inner() {
+                if let ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(class_ref)) = entry {
+                    let Some(class_name) = classfile
+                        .constant_pool()
+                        .get_utf8_string(class_ref.name_index())
+                    else {
+                        log::error!(
+                            "Invalid class name reference at index {}, found: {:?}",
+                            class_ref.name_index(),
+                            classfile.constant_pool().get(class_ref.name_index())
+                        );
+                        return Err(ClassLoadingError::ConstantPoolLoadingError {
+                            source: ConstantPoolError::InvalidClassNameReference {
+                                index: class_ref.name_index(),
+                            },
+                        });
+                    };
+                    if self.classes_by_name.contains_key(&class_name.to_string()) {
+                        continue;
+                    }
+                    if dependencies.contains(&class_name.to_string()) {
+                        continue;
+                    }
+                    dependencies.push(class_name.to_string());
+                }
             }
         }
 

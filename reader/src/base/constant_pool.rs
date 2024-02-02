@@ -109,9 +109,9 @@ pub enum ConstantPoolInfo {
     InterfaceMethodRefInfo(InterfaceMethodRefInfo),
     StringInfo(StringInfo),
     IntegerInfo(IntegerInfo),
-    // FloatInfo(FloatInfo),
-    // LongInfo(LongInfo),
-    // DoubleInfo(DoubleInfo),
+    FloatInfo(FloatInfo),
+    LongInfo(LongInfo),
+    DoubleInfo(DoubleInfo),
     NameAndTypeInfo(NameAndTypeInfo),
     /// UTF8Info entry, see [Utf8Info].
     Utf8Info(Utf8Info),
@@ -228,7 +228,55 @@ pub struct IntegerInfo {
 impl IntegerInfo {
     /// Get the integer value of the constant.
     pub fn value(&self) -> i32 {
-        self.bytes as i32
+        i32::from_be_bytes(U4::to_be_bytes(self.bytes))
+    }
+}
+
+/// LongInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug)]
+#[br(big)]
+pub struct LongInfo {
+    // tag: U1,
+    /// Representation of the constant in big-endian order.
+    inner: i64,
+}
+
+impl LongInfo {
+    /// Get the long value of the constant.
+    pub fn value(&self) -> i64 {
+        self.inner as i64
+    }
+}
+
+/// FloatInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug)]
+#[br(big)]
+pub struct FloatInfo {
+    // tag: U1,
+    /// Representation of the constant in big-endian order.
+    bytes: U4,
+}
+
+impl FloatInfo {
+    /// Get the float value of the constant.
+    pub fn value(&self) -> f32 {
+        f32::from_bits(self.bytes as u32)
+    }
+}
+
+/// DoubleInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug)]
+#[br(big)]
+pub struct DoubleInfo {
+    // tag: U1,
+    /// Representation of the constant in big-endian order.
+    inner: u64,
+}
+
+impl DoubleInfo {
+    /// Get the double value of the constant.
+    pub fn value(&self) -> f64 {
+        f64::from_bits(self.inner)
     }
 }
 
@@ -262,6 +310,18 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
             3 => (
                 ConstantPoolEntry::Entry(ConstantPoolInfo::IntegerInfo(IntegerInfo::read(reader)?)),
                 false,
+            ),
+            4 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::FloatInfo(FloatInfo::read(reader)?)),
+                false,
+            ),
+            5 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::LongInfo(LongInfo::read(reader)?)),
+                true,
+            ),
+            6 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::DoubleInfo(DoubleInfo::read(reader)?)),
+                true,
             ),
             7 => (
                 ConstantPoolEntry::Entry(ConstantPoolInfo::ClassInfo(ClassInfo::read(reader)?)),

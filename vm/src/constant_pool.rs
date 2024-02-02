@@ -5,7 +5,7 @@ use reader::base::ConstantPool as ClassfileConstantPool;
 use reader::descriptor;
 use reader::descriptor::FieldDescriptor;
 use reader::descriptor::MethodDescriptor;
-use snafu::Snafu;
+use snafu::{Snafu, ResultExt};
 
 use crate::class::ClassId;
 use crate::class_manager::ClassManager;
@@ -67,10 +67,19 @@ impl ConstantPool {
                     ClassfileConstantPoolInfo::IntegerInfo(info) => {
                         cp.append(ConstantPoolEntry::IntegerConstant(info.value()));
                     }
+                    ClassfileConstantPoolInfo::FloatInfo(info) => {
+                        cp.append(ConstantPoolEntry::FloatConstant(info.value()));
+                    }
+                    ClassfileConstantPoolInfo::LongInfo(info) => {
+                        cp.append(ConstantPoolEntry::LongConstant(info.value()));
+                    }
+                    ClassfileConstantPoolInfo::DoubleInfo(info) => {
+                        cp.append(ConstantPoolEntry::DoubleConstant(info.value()));
+                    }
                     ClassfileConstantPoolInfo::FieldRefInfo(info) => {
                         let class_name = classfile_cp
-                            .get_utf8_string(info.class_index as usize)
-                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                            .get_class_name(info.class_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidClassNameReference {
                                 index: info.class_index as usize,
                             })?;
                         let (field_name, field_descriptor) = classfile_cp
@@ -80,7 +89,13 @@ impl ConstantPool {
                             })?;
                         let implementor = cm
                             .get_or_resolve_class(&class_name)
-                            .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                            .map_err(|err| {
+                                log::debug!(target:"rt::constantpool::fieldref", "Class loading failure (name: {}): {}", &class_name, err);
+                                ConstantPoolError::ClassLoadingFailure {
+                                    class_name: class_name.to_string(),
+                                    context: Some(format!("FieldRefInfo (name: {}, descriptor: {}) at index {}", field_name, field_descriptor, info.name_and_type_index as usize))
+                                }
+                            })?;
                         let descriptor =
                             descriptor::parse_field_descriptor(&field_descriptor.to_owned())
                                 .map_err(|err| ConstantPoolError::InvalidDescriptor {
@@ -96,8 +111,8 @@ impl ConstantPool {
                     }
                     ClassfileConstantPoolInfo::MethodRefInfo(info) => {
                         let class_name = classfile_cp
-                            .get_utf8_string(info.class_index as usize)
-                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                            .get_class_name(info.class_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidClassNameReference {
                                 index: info.class_index as usize,
                             })?;
                         let (method_name, method_descriptor) = classfile_cp
@@ -107,7 +122,13 @@ impl ConstantPool {
                             })?;
                         let implementor = cm
                             .get_or_resolve_class(&class_name)
-                            .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                            .map_err(|err| {
+                                log::debug!(target:"rt::constantpool::methodref", "Class loading failure (name: {}): {}", &class_name, err);
+                                ConstantPoolError::ClassLoadingFailure {
+                                    class_name: class_name.to_string(),
+                                    context: Some(format!("MethodRefInfo (name: {}, descriptor: {}) at index {}", method_name, method_descriptor, info.name_and_type_index as usize))
+                                }
+                            })?;
                         let descriptor =
                             descriptor::parse_method_descriptor(&&method_descriptor.to_owned())
                                 .map_err(|err| ConstantPoolError::InvalidDescriptor {
@@ -123,8 +144,8 @@ impl ConstantPool {
                     }
                     ClassfileConstantPoolInfo::InterfaceMethodRefInfo(info) => {
                         let class_name = classfile_cp
-                            .get_utf8_string(info.class_index as usize)
-                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                            .get_class_name(info.class_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidClassNameReference {
                                 index: info.class_index as usize,
                             })?;
                         let (method_name, method_descriptor) = classfile_cp
@@ -134,7 +155,13 @@ impl ConstantPool {
                             })?;
                         let implementor = cm
                             .get_or_resolve_class(&class_name)
-                            .map_err(|_| ConstantPoolError::ClassLoadingFailure)?;
+                            .map_err(|err| {
+                                log::debug!(target:"rt::constantpool::interfacemethodref", "Class loading failure (name: {}): {}", &class_name, err);
+                                ConstantPoolError::ClassLoadingFailure {
+                                    class_name: class_name.to_string(),
+                                    context: Some(format!("InterfaceMethodRefInfo (name: {}, descriptor: {}) at index {}", method_name, method_descriptor, info.name_and_type_index as usize))
+                                }
+                            })?;
                         let descriptor =
                             descriptor::parse_method_descriptor(&&method_descriptor.to_owned())
                                 .map_err(|err| ConstantPoolError::InvalidDescriptor {
@@ -147,13 +174,14 @@ impl ConstantPool {
                             method_descriptor: descriptor,
                             implementor: implementor.id(),
                         });
-                    }
+                    },
                     _ => {
-                        log::debug!("Constant pool entry not implemented, ingnored: {:?}", entry);
+                        log::debug!("Constant pool entry not necessary or unimplemented, ignored in RT ConstanPool: {:?}", entry);
                     }
                 }
                 cp.mappings.push(cp.entries.len());
             } else {
+                // Tombstone, this entry is not used.
                 cp.mappings.push(0);
             }
         }
@@ -178,8 +206,14 @@ pub enum ConstantPoolError {
         source: descriptor::DescriptorError,
     },
 
-    #[snafu(display("Loading failure of a class/interface reference."))]
-    ClassLoadingFailure,
+    #[snafu(display("Invalid classname reference, entry index: {}", index))]
+    InvalidClassNameReference { index: usize },
+
+    #[snafu(display("Loading failure of a class/interface reference, name: {}, context: {}", class_name, context.as_ref().unwrap_or(&"<unknown>".to_string())))]
+    ClassLoadingFailure {
+        class_name: String,
+        context: Option<String>,
+    },
 }
 
 /// Runtime representation of a constant pool entry.

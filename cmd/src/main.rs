@@ -15,7 +15,7 @@ const MAIN_METHOD_DESCRIPTOR : MethodDescriptor = MethodDescriptor {
 pub struct Opts {
     /// The classpath to use
     #[clap(short, long, default_value="./classpath")]
-    pub classpath: String,
+    pub classpath: Vec<String>,
 
     /// The class to run
     #[clap(value_parser=parse_main_class, required = true)]
@@ -28,19 +28,16 @@ fn parse_main_class(input: &str) -> Result<ClassName, descriptor::DescriptorErro
 
 fn main() {
     pretty_env_logger::formatted_builder()
-        .parse_env(Env::default().default_filter_or("info"))
+        .parse_env(Env::default().default_filter_or("info,vm=trace,reader=trace"))
         .init();
     let opts: Opts = Opts::parse();
     log::info!("BlazeVM starting up...");
-    log::info!("Loading classpath: {}", opts.classpath);
-    let classpath = Path::new(&opts.classpath);
-    if !(classpath.exists() && classpath.is_dir()) {
-        log::error!("Classpath `{}` does not exist or is not a directory.", classpath.display());
-        exit(-1);
-    }
     let mut class_loader = ClassLoader::new();
-    let class_path = ClassPathDirEntry::new(classpath);
-    class_loader.add_class_path_entry(Box::new(class_path));
+    for classpath in opts.classpath.iter() {
+        log::info!("Adding classpath: {}", classpath);
+        let class_path = ClassPathDirEntry::new(classpath);
+        class_loader.add_class_path_entry(Box::new(class_path));
+    }
     log::info!("Running Main class: {}", opts.main_class);
     let mut vm = Vm::new(class_loader);
     let main_name: String = opts.main_class.as_binary_name();
