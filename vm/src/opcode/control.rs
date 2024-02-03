@@ -123,7 +123,31 @@ xreturn!(ireturn, Int);
 xreturn!(lreturn, Long);
 xreturn!(freturn, Float);
 xreturn!(dreturn, Double);
-// TODO: implement areturn
+
+/// `areturn` returns a reference from a method.
+pub fn areturn(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
+    let prev_frame = thread.pop_frame().unwrap();
+    if let Some(slot) = prev_frame.operand_stack.last() {
+        if slot.is_reference() {
+            let frame = thread.current_frame_mut().unwrap();
+            let Some(Slot::InvokationReturnAddress(pc)) = frame.operand_stack.pop() else {
+                return Err(InstructionError::InvalidState {
+                    context: "Expected invokation return address on the operand stack".into(),
+                });
+            };
+            frame.operand_stack.push(slot.clone());
+            Ok(InstructionSuccess::FrameChange(pc as usize))
+        } else {
+            return Err(InstructionError::InvalidState {
+                context: format!("Expected reference but got {:?}", slot),
+            });
+        }
+    } else {
+        return Err(InstructionError::InvalidState {
+            context: "Expected reference on the operand stack".into(),
+        });
+    }
+}
 
 mod macros {
     #[macro_export]

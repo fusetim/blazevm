@@ -1,7 +1,7 @@
 use super::{InstructionError, InstructionSuccess};
 use crate::thread::Slot;
 use crate::thread::Thread;
-use crate::{if_icmpx, ifx};
+use crate::{if_acmpx, if_icmpx, ifx};
 use std::{f32, f64};
 
 ifx!(ifeq, ==);
@@ -18,7 +18,8 @@ if_icmpx!(if_icmplt, <);
 if_icmpx!(if_icmpge, >=);
 if_icmpx!(if_icmpgt, >);
 
-// TODO: implement if_acmpx
+if_acmpx!(if_acmpeq, true);
+if_acmpx!(if_acmpne, false);
 
 /// `lcmp` compares two longs and pushes the result onto the stack.
 pub fn lcmp(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
@@ -199,6 +200,51 @@ mod macros {
                     }
                 } else {
                     Err(InstructionError::InvalidState { context: "Expected int on top of operand stack".into() })
+                }
+            }
+        };
+    }
+
+    #[macro_export]
+    macro_rules! if_acmpx {
+        ($name:ident, $on_eq:tt) => {
+            /// Branch if reference comparison succeeds.
+            pub fn $name(
+                thread: &mut Thread,
+                offset: i16,
+            ) -> Result<InstructionSuccess, InstructionError> {
+                let frame = thread.current_frame_mut().unwrap();
+                if let Some(value2) = frame.operand_stack.pop() {
+                    if let Some(value1) = frame.operand_stack.pop() {
+                        let eqcheck = match (value1, value2) {
+                            (Slot::UndefinedReference, Slot::UndefinedReference) => true,
+                            (Slot::ObjectReference(obj1), Slot::ObjectReference(obj2)) => {
+                                std::ptr::eq(obj1.as_ref(), obj2.as_ref())
+                            }
+                            (Slot::ArrayReference(arr1), Slot::ArrayReference(arr2)) => {
+                                std::ptr::eq(arr1.as_ref(), arr2.as_ref())
+                            }
+                            (x, y) if x.is_reference() && y.is_reference() => false,
+                            _ => {
+                                return Err(InstructionError::InvalidState {
+                                    context: "Expected reference on top of operand stack".into(),
+                                });
+                            }
+                        };
+                        if eqcheck == $on_eq {
+                            Ok(InstructionSuccess::JumpRelative(offset as isize))
+                        } else {
+                            Ok(InstructionSuccess::Next(3))
+                        }
+                    } else {
+                        Err(InstructionError::InvalidState {
+                            context: "Expected reference on top of operand stack".into(),
+                        })
+                    }
+                } else {
+                    Err(InstructionError::InvalidState {
+                        context: "Expected reference on top of operand stack".into(),
+                    })
                 }
             }
         };

@@ -1,8 +1,13 @@
-use std::sync::{RwLock};
+use std::sync::RwLock;
 
 use dumpster::{sync::Gc, Collectable};
 
-use crate::{class::ClassId, class_loader::ClassLoadingError, class_manager::{ClassManager, LoadedClass}, slot::Slot};
+use crate::{
+    class::ClassId,
+    class_loader::ClassLoadingError,
+    class_manager::{ClassManager, LoadedClass},
+    slot::Slot,
+};
 
 pub type ObjectRef = Gc<Object>;
 
@@ -12,7 +17,7 @@ pub struct Object {
     fields: RwLock<Vec<Slot>>,
     // A better solution would have been to use Once but unfortunately it does not
     // implement Collectable.
-    initialized: RwLock<bool>,
+    initialized: RwLock<ObjectInitState>,
 }
 
 impl Object {
@@ -24,7 +29,7 @@ impl Object {
         Self {
             class_id,
             fields: RwLock::new(fields),
-            initialized: RwLock::new(false),
+            initialized: RwLock::new(ObjectInitState::Uninitialized),
         }
     }
 
@@ -33,7 +38,10 @@ impl Object {
     /// This method will request the class to be loaded if it is not already
     /// loaded, then it will create a new object with the default values for the
     /// non-static fields.
-    pub fn new_with_classmanager(cm: &mut ClassManager, class_id: ClassId) -> Result<Self, ClassLoadingError> {
+    pub fn new_with_classmanager(
+        cm: &mut ClassManager,
+        class_id: ClassId,
+    ) -> Result<Self, ClassLoadingError> {
         cm.request_class_load(class_id)?;
         let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(class_id) else {
             log::debug!("Class not loaded: {:?}", class_id);
@@ -50,7 +58,7 @@ impl Object {
 
         Ok(Self::new(class_id, fields))
     }
-    
+
     /// Get the class id of the object
     pub fn class_id(&self) -> &ClassId {
         &self.class_id
@@ -58,16 +66,51 @@ impl Object {
 
     /// Check if the object has been initialized
     pub fn is_initialized(&self) -> bool {
-        *self.initialized.read().expect("rwlock has been poisoned, cannot read initialized flag")
+        *self
+            .initialized
+            .read()
+            .expect("rwlock has been poisoned, cannot read initialized flag")
+            == ObjectInitState::Initialized
+    }
+
+    /// Check if the object is currently being initialized
+    pub fn is_initializing(&self) -> bool {
+        *self
+            .initialized
+            .read()
+            .expect("rwlock has been poisoned, cannot read initialized flag")
+            == ObjectInitState::Initializing
+    }
+
+    /// Set the initialization state of the object
+    pub fn set_init_state(&self, state: ObjectInitState) {
+        *self
+            .initialized
+            .write()
+            .expect("rwlock has been poisoned, cannot set initialized flag") = state;
     }
 
     /// Get the value at the given index
     pub fn get_field(&self, index: usize) -> Option<Slot> {
-        self.fields.read().expect("rwlock has been poisoned, cannot get field of object").get(index).cloned()
+        self.fields
+            .read()
+            .expect("rwlock has been poisoned, cannot get field of object")
+            .get(index)
+            .cloned()
     }
 
     /// Set the value at the given index
     pub fn set_field(&self, index: usize, value: Slot) {
-        self.fields.write().expect("rwlock has been poisoned, cannot set field of object")[index] = value;
+        self.fields
+            .write()
+            .expect("rwlock has been poisoned, cannot set field of object")[index] = value;
     }
+}
+
+#[derive(Debug, Collectable, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectInitState {
+    Uninitialized,
+    Initializing,
+    Initialized,
+    Failed,
 }

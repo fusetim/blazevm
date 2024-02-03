@@ -513,7 +513,7 @@ impl Opcode {
     ) -> Result<InstructionSuccess, InstructionError> {
         match self {
             Opcode::Nop => constant::nop(thread),
-            // Opcode::AConstNull
+            Opcode::AConstNull => constant::aconst_null(thread),
             Opcode::IConstM1 => constant::iconst_m1(thread),
             Opcode::IConst0 => constant::iconst_0(thread),
             Opcode::IConst1 => constant::iconst_1(thread),
@@ -537,7 +537,7 @@ impl Opcode {
             Opcode::LLoad(index) => load::lload(thread, *index),
             Opcode::FLoad(index) => load::fload(thread, *index),
             Opcode::DLoad(index) => load::dload(thread, *index),
-            // TODO: implement ALoad
+            Opcode::ALoad(index) => load::aload(thread, *index),
             Opcode::ILoad0 => load::iload_0(thread),
             Opcode::ILoad1 => load::iload_1(thread),
             Opcode::ILoad2 => load::iload_2(thread),
@@ -554,13 +554,23 @@ impl Opcode {
             Opcode::DLoad1 => load::dload_1(thread),
             Opcode::DLoad2 => load::dload_2(thread),
             Opcode::DLoad3 => load::dload_3(thread),
-            // TODO: implement ALoadN
-            // TODO: implement array load instructions
+            Opcode::ALoad0 => load::aload_0(thread),
+            Opcode::ALoad1 => load::aload_1(thread),
+            Opcode::ALoad2 => load::aload_2(thread),
+            Opcode::ALoad3 => load::aload_3(thread),
+            Opcode::IALoad => load::iaload(thread),
+            Opcode::LALoad => load::laload(thread),
+            Opcode::FALoad => load::faload(thread),
+            Opcode::DALoad => load::daload(thread),
+            Opcode::AALoad => load::aaload(thread),
+            Opcode::BALoad => load::baload(thread),
+            Opcode::CALoad => load::caload(thread),
+            Opcode::SALoad => load::saload(thread),
             Opcode::IStore(index) => store::istore(thread, *index),
             Opcode::LStore(index) => store::lstore(thread, *index),
             Opcode::FStore(index) => store::fstore(thread, *index),
             Opcode::DStore(index) => store::dstore(thread, *index),
-            // TODO: implement AStore
+            Opcode::AStore(index) => store::astore(thread, *index),
             Opcode::IStore0 => store::istore_0(thread),
             Opcode::IStore1 => store::istore_1(thread),
             Opcode::IStore2 => store::istore_2(thread),
@@ -577,8 +587,18 @@ impl Opcode {
             Opcode::DStore1 => store::dstore_1(thread),
             Opcode::DStore2 => store::dstore_2(thread),
             Opcode::DStore3 => store::dstore_3(thread),
-            // TODO: implement AStoreN
-            // TODO: implement array store instructions
+            Opcode::AStore0 => store::astore_0(thread),
+            Opcode::AStore1 => store::astore_1(thread),
+            Opcode::AStore2 => store::astore_2(thread),
+            Opcode::AStore3 => store::astore_3(thread),
+            Opcode::IAStore => store::iastore(thread),
+            Opcode::LAStore => store::lastore(thread),
+            Opcode::FAStore => store::fastore(thread),
+            Opcode::DAStore => store::dastore(thread),
+            Opcode::AAStore => store::aastore(thread),
+            Opcode::BAStore => store::bastore(thread),
+            Opcode::CAStore => store::castore(thread),
+            Opcode::SAStore => store::sastore(thread),
             Opcode::Pop => stack::pop(thread),
             Opcode::Pop2 => stack::pop2(thread),
             Opcode::Dup => stack::dup(thread),
@@ -656,7 +676,8 @@ impl Opcode {
             Opcode::IfICmpGe(value) => comparison::if_icmpge(thread, *value),
             Opcode::IfICmpGt(value) => comparison::if_icmpgt(thread, *value),
             Opcode::IfICmpLe(value) => comparison::if_icmple(thread, *value),
-            // TODO: Implement IfACmpEq and IfACmpNe
+            Opcode::IfACmpEq(value) => comparison::if_acmpeq(thread, *value),
+            Opcode::IfACmpNe(value) => comparison::if_acmpne(thread, *value),
             Opcode::Goto(value) => control::goto(thread, *value),
             Opcode::Jsr(value) => control::jsr(thread, *value),
             Opcode::Ret(value) => control::ret(thread, *value),
@@ -666,7 +687,7 @@ impl Opcode {
             Opcode::LReturn => control::lreturn(thread),
             Opcode::FReturn => control::freturn(thread),
             Opcode::DReturn => control::dreturn(thread),
-            // TODO: Implement areturn
+            Opcode::AReturn => control::areturn(thread),
             Opcode::Return => control::vreturn(thread),
             Opcode::GetStatic(index) => reference::getstatic(thread, cm, *index),
             Opcode::PutStatic(index) => reference::putstatic(thread, cm, *index),

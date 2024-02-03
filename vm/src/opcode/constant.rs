@@ -27,6 +27,13 @@ xconst_i!(fconst_2, Float, 2.0);
 xconst_i!(dconst_0, Double, 0.0);
 xconst_i!(dconst_1, Double, 1.0);
 
+/// `aconst_null` pushes a null reference onto the stack.
+pub fn aconst_null(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    frame.operand_stack.push(Slot::UndefinedReference);
+    Ok(InstructionSuccess::Next(1))
+}
+
 /// `bipush` pushes a byte onto the stack as an integer.
 pub fn bipush(thread: &mut Thread, value: i8) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
