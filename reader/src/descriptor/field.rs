@@ -1,8 +1,9 @@
 use super::class::ClassName;
+use dumpster::Collectable;
 use nom::{branch::alt, bytes::complete::tag, combinator::map, IResult};
 
 /// Field descriptor representation
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub struct FieldDescriptor(FieldType);
 
 impl FieldDescriptor {
@@ -36,7 +37,7 @@ impl FieldDescriptor {
 /// Field type representation
 ///
 /// Dispatch to one of the 3 types of types: primitive, object or array.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub enum FieldType {
     BaseType(BaseType),
     ObjectType(ObjectType),
@@ -75,7 +76,7 @@ impl FieldType {
 }
 
 /// Primitive type representation
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub enum BaseType {
     Byte,
     Char,
@@ -105,7 +106,7 @@ impl BaseType {
 /// Object type representation
 ///
 /// An object type is represented mostly by its class name.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub struct ObjectType {
     pub class_name: ClassName,
 }
@@ -124,7 +125,7 @@ impl ObjectType {
 }
 
 /// Array type representation
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub struct ArrayType {
     pub item: Box<FieldType>,
 }

@@ -1,8 +1,9 @@
+use dumpster::Collectable;
 use nom::{branch::alt, bytes::complete::tag, character::complete::none_of, multi::many1, IResult};
 use std::{fmt::Display, str::FromStr};
 
 /// Classname representation
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub struct ClassName {
     parts: Vec<UnqualifiedName>,
 }
@@ -54,7 +55,7 @@ impl FromStr for ClassName {
 }
 
 /// Unqualified name representation
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub struct UnqualifiedName(pub String);
 
 impl UnqualifiedName {

@@ -1,6 +1,6 @@
 use dumpster::Collectable;
 
-use crate::class::ConstantValue;
+use crate::{alloc::ArrayRef, class::ConstantValue};
 
 #[derive(Debug, Clone, Collectable)]
 pub enum Slot {
@@ -18,6 +18,7 @@ pub enum Slot {
     ///
     /// It is an internal implementation detail and should not be used by the user.
     InvokationReturnAddress(u32),
+    ArrayReference(ArrayRef),
     // Object(ClassId),
 }
 
@@ -28,7 +29,8 @@ impl Slot {
             Slot::Int(_)
             | Slot::Float(_)
             | Slot::ReturnAddress(_)
-            | Slot::InvokationReturnAddress(_) => 1,
+            | Slot::InvokationReturnAddress(_)
+            | Slot::ArrayReference(_) => 1,
             Slot::Long(_) | Slot::Double(_) => 2,
         }
     }

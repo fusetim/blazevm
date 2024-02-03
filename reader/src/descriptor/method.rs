@@ -1,8 +1,9 @@
 use super::field::FieldType;
+use dumpster::Collectable;
 use nom::{branch::alt, bytes::complete::tag, combinator::map, IResult};
 
 /// Method descriptor representation
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Collectable)]
 pub struct MethodDescriptor {
     pub parameters: Vec<FieldType>,
     pub return_type: Option<FieldType>,
