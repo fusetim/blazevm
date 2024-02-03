@@ -20,7 +20,28 @@ it would be kinda cool to have a language that compiles to JVM bytecode but also
 
 == How to run it?
 
-You don't for now. It still is quite the early days of this project, therefore there is not much to see yet.
+Still the early days of this project, but you can now run some classes if they do not require native methods nor allocations nor String constants.
+
+To run the example class `MinimalClass` you will need to retrieve a JRE `rt.jar` file and uncompressed it in a directory, here `./classpath`.
+
+[NOTE]
+--
+`rt.jar` do not exists anymore in Java 9 and later, so you will need to use one from a JRE 8 or earlier. On MacOS, this file is called `classes.jar`.
+You can found it in `JAVA_HOME/jre/lib/rt.jar` or `JAVA_HOME/lib/rt.jar`.
+--
+
+```shell
+# Clone the repository
+git clone https://github.com/fusetim/blazevm && cd blazevm
+
+# Build the project
+cargo build --release
+
+# Run the example class
+RUST_LOG=debug ./target/release/cmd -c ./reader/res/test -c .classpath MinimalClass
+```
+
+Enjoy! You successfully ran a class in BlazeVM, and also calculate the sum of 1 and 1 =).
 
 == License
 
