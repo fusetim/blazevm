@@ -5,7 +5,7 @@ use reader::base::ConstantPool as ClassfileConstantPool;
 use reader::descriptor;
 use reader::descriptor::FieldDescriptor;
 use reader::descriptor::MethodDescriptor;
-use snafu::{Snafu, ResultExt};
+use snafu::{ResultExt, Snafu};
 
 use crate::class::ClassId;
 use crate::class_manager::ClassManager;
@@ -35,7 +35,7 @@ impl ConstantPool {
         if index == 0 || index >= self.mappings.len() {
             return None;
         }
-        let map = self.mappings.get(index)?;
+        let map = self.mappings.get(index - 1)?;
         self.entries.get(*map)
     }
 
@@ -177,7 +177,7 @@ impl ConstantPool {
                             method_descriptor: descriptor,
                             implementor,
                         });
-                    },
+                    }
                     _ => {
                         log::trace!("Constant pool entry not necessary or unimplemented, ignored in RtConstantPool: {:?}", entry);
                     }

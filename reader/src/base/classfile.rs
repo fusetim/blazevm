@@ -98,7 +98,10 @@ impl ClassFile {
             Some(name) => Ok(name),
             None => Err(DecodingError::InvalidThisClass {
                 index: self.this_class as usize,
-                message: Some(format!("entry found: {:?}", self.constant_pool.get(self.this_class as usize))),
+                message: Some(format!(
+                    "entry found: {:?}",
+                    self.constant_pool.get(self.this_class as usize)
+                )),
             }),
         }
     }
@@ -115,7 +118,10 @@ impl ClassFile {
                 Some(name) => Ok(Some(name)),
                 None => Err(DecodingError::InvalidSuperClass {
                     index: self.super_class as usize,
-                    message: Some(format!("entry found: {:?}", self.constant_pool.get(self.super_class as usize))),
+                    message: Some(format!(
+                        "entry found: {:?}",
+                        self.constant_pool.get(self.super_class as usize)
+                    )),
                 }),
             }
         }

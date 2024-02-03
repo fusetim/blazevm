@@ -1,11 +1,15 @@
 use std::{path::Path, process::exit};
 
 use clap::Parser;
-use pretty_env_logger::env_logger::{Env, Builder};
+use pretty_env_logger::env_logger::{Builder, Env};
 use reader::descriptor::{self, ClassName, MethodDescriptor};
-use vm::{class_loader::{ClassLoader, ClassPathDirEntry}, class_manager::LoadedClass, Vm};
+use vm::{
+    class_loader::{ClassLoader, ClassPathDirEntry},
+    class_manager::LoadedClass,
+    Vm,
+};
 
-const MAIN_METHOD_DESCRIPTOR : MethodDescriptor = MethodDescriptor {
+const MAIN_METHOD_DESCRIPTOR: MethodDescriptor = MethodDescriptor {
     return_type: None,
     parameters: vec![],
 };
@@ -14,7 +18,7 @@ const MAIN_METHOD_DESCRIPTOR : MethodDescriptor = MethodDescriptor {
 #[clap(name = "blazevm-cli", version, author, about)]
 pub struct Opts {
     /// The classpath to use
-    #[clap(short, long, default_value="./classpath")]
+    #[clap(short, long, default_value = "./classpath")]
     pub classpath: Vec<String>,
 
     /// The class to run
@@ -45,17 +49,21 @@ fn main() {
         Ok(main_class) => {
             log::info!("Main class loaded: {:?}", main_class.id());
             let LoadedClass::Loaded(main_class) = main_class else {
-                log::error!("Main class is not correctly initialized: {:?}", main_class.id());
+                log::error!(
+                    "Main class is not correctly initialized: {:?}",
+                    main_class.id()
+                );
                 exit(-1);
             };
             let class_id = main_class.id;
-            let Some((main_method, _)) = main_class.get_method("main", &MAIN_METHOD_DESCRIPTOR) else {
+            let Some((main_method, _)) = main_class.get_method("main", &MAIN_METHOD_DESCRIPTOR)
+            else {
                 log::error!("Main method not found in class: {:?}", &main_class.id);
                 exit(-2);
             };
             log::info!("Main method loaded.");
             let args = vec![];
-            vm.thread_manager_mut().create_thread(&class_id, main_method, args)
+            vm.create_thread(&class_id, main_method, args)
         }
         Err(e) => {
             log::error!("Error loading main class, cause:\n{}", e);

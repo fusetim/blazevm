@@ -1,6 +1,6 @@
 use super::{InstructionError, InstructionSuccess};
 use crate::class::{Class, ClassId, Method};
-use crate::class_manager::{ClassManager, LoadedClass};
+use crate::class_manager::{ClassManager, LoadedClass, LoadingClass};
 use crate::constant_pool::ConstantPoolEntry;
 use crate::thread::{Frame, Slot, Thread};
 
@@ -22,7 +22,7 @@ pub fn getstatic(
         field_name,
         field_descriptor,
         implementor,
-    }) = class.constant_pool.get_field_ref(index as usize)
+    }) = class.constant_pool.get_field_ref(index as usize).cloned()
     else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -31,6 +31,7 @@ pub fn getstatic(
             ),
         });
     };
+    cm.request_class_load(implementor.clone());
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(implementor.clone()) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -61,7 +62,7 @@ pub fn getstatic(
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Field not initialized: ClassId({}), field index {}",
-                class.id.0, index
+                implementor.0, index
             ),
         });
     };
@@ -103,6 +104,7 @@ pub fn putstatic(
             implementor.clone(),
         )
     };
+    cm.request_class_load(implementor.clone());
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_mut_class_by_id(implementor.clone()) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -185,6 +187,7 @@ pub fn invokestatic(
         (method_name, method_descriptor, implementor)
     };
 
+    cm.request_class_load(implementor.clone());
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(implementor) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -218,9 +221,7 @@ pub fn invokestatic(
         });
     }
 
-    invoke(thread, cm, implementor, method_id, args)?;
-
-    Ok(InstructionSuccess::Next(3))
+    invoke(thread, cm, implementor, method_id, args, 3)
 }
 
 fn invoke(
@@ -229,6 +230,7 @@ fn invoke(
     class_id: ClassId,
     method_id: usize,
     args: Vec<Slot>,
+    next_instruction: usize,
 ) -> Result<InstructionSuccess, InstructionError> {
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(class_id) else {
         return Err(InstructionError::InvalidState {
@@ -249,7 +251,15 @@ fn invoke(
     };
 
     if method.is_native() {
-        todo!("Native methods");
+        log::debug!(
+            "Call to native method: {}::{}, {:?}, with args:\n{:?}",
+            impl_class.name,
+            method.name,
+            method.descriptor,
+            args
+        );
+        log::warn!("Native methods are not implemented yet, skipping the invokation");
+        Ok(InstructionSuccess::Next(next_instruction))
     } else {
         let code = method
             .get_code()
@@ -259,7 +269,8 @@ fn invoke(
         // TODO: synchronized - implement monitorenter/monitorexit
 
         // Push the "return address" onto the stack
-        let old_pc = thread.pc;
+        let old_pc = thread.pc + next_instruction;
+
         let cur_frame = thread.current_frame_mut().unwrap();
         cur_frame
             .operand_stack

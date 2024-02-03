@@ -1,4 +1,7 @@
-use crate::{class::ClassId, thread::{Frame, Slot, Thread}};
+use crate::{
+    class::{Class, ClassId},
+    thread::{Frame, Slot, Thread},
+};
 
 pub type ThreadId = usize;
 
@@ -12,15 +15,26 @@ impl ThreadManager {
         Self { threads: vec![] }
     }
 
-    pub fn create_thread<'a>(&'a mut self, class: &ClassId, method: usize, args: Vec<Slot>) -> ThreadId {
+    pub fn create_thread<'a>(
+        &'a mut self,
+        class: &ClassId,
+        method: usize,
+        max_locals: usize,
+        args: Vec<Slot>,
+    ) -> ThreadId {
         let mut thread = Thread::new();
-        thread.push_frame(Frame::new(*class, method, args.len()));
+
+        thread.push_frame(Frame::new(class.clone(), method, max_locals));
         let mut pos = 0;
         for arg in args {
             if arg.size() > 1 {
                 pos += 1;
             }
-            *thread.current_frame_mut().unwrap().get_local_variable_mut(pos).unwrap() = arg;
+            *thread
+                .current_frame_mut()
+                .unwrap()
+                .get_local_variable_mut(pos)
+                .unwrap() = arg;
             pos += 1;
         }
         self.threads.push(thread);

@@ -39,9 +39,13 @@ impl ConstantPool {
         match self.get_info(index) {
             Some(ConstantPoolInfo::Utf8Info(utf8)) => utf8.to_string(),
             _ => {
-                log::warn!("Invalid Utf8 info at index {}, found: {:?}", index, self.get(index));
+                log::warn!(
+                    "Invalid Utf8 info at index {}, found: {:?}",
+                    index,
+                    self.get(index)
+                );
                 None
-            },
+            }
         }
     }
 
@@ -52,9 +56,13 @@ impl ConstantPool {
                 self.get_utf8_string(class.name_index as usize)
             }
             _ => {
-                log::warn!("Invalid class info at index {}, found: {:?}", index, self.get(index));
+                log::warn!(
+                    "Invalid class info at index {}, found: {:?}",
+                    index,
+                    self.get(index)
+                );
                 None
-            },
+            }
         }
     }
 

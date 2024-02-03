@@ -79,7 +79,7 @@ mod macros {
                         context: format!("Local variable {} not found", $index),
                     });
                 }
-                Ok(InstructionSuccess::Next(2))
+                Ok(InstructionSuccess::Next(1))
             }
         };
     }

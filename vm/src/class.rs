@@ -290,22 +290,22 @@ pub fn parse_field_attribute(
                     Ok(Some(FieldAttribute::ConstantValue {
                         value: ConstantValue::Integer(info.value()),
                     }))
-                },
+                }
                 ClassfileConstantPoolInfo::LongInfo(info) => {
                     Ok(Some(FieldAttribute::ConstantValue {
                         value: ConstantValue::Long(info.value()),
                     }))
-                },
+                }
                 ClassfileConstantPoolInfo::FloatInfo(info) => {
                     Ok(Some(FieldAttribute::ConstantValue {
                         value: ConstantValue::Float(info.value()),
                     }))
-                },
+                }
                 ClassfileConstantPoolInfo::DoubleInfo(info) => {
                     Ok(Some(FieldAttribute::ConstantValue {
                         value: ConstantValue::Double(info.value()),
                     }))
-                },
+                }
                 _ => unimplemented!("ConstantValue attribute with type: {:?}", value),
             }
         }

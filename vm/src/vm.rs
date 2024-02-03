@@ -1,5 +1,9 @@
 use crate::{
-    class_loader::ClassLoader, class_manager::ClassManager, thread::ExecutionError, thread_manager::ThreadManager
+    class::ClassId,
+    class_loader::ClassLoader,
+    class_manager::{ClassManager, LoadedClass},
+    thread::{ExecutionError, Slot},
+    thread_manager::ThreadManager,
 };
 
 #[derive(Debug)]
@@ -31,6 +35,21 @@ impl Vm {
 
     pub fn thread_manager_mut(&mut self) -> &mut ThreadManager {
         &mut self.thread_manager
+    }
+
+    pub fn create_thread(&mut self, class_id: &ClassId, method: usize, args: Vec<Slot>) -> usize {
+        let Some(LoadedClass::Loaded(class)) = self.class_manager.get_class_by_id(class_id.clone())
+        else {
+            panic!("Class not loaded: {:?}", class_id);
+        };
+        let m = class.get_method_by_index(method).unwrap();
+        let code = m.get_code().expect(
+            "Code attribute not found, probably a native method, unsupported as thread entry point",
+        );
+        let max_locals = code.max_locals as usize;
+
+        self.thread_manager
+            .create_thread(&class_id, method, max_locals, args)
     }
 
     pub fn execute_thread(&mut self, thread_id: usize) -> Result<(), ExecutionError> {

@@ -1,7 +1,6 @@
 use nom::{branch::alt, bytes::complete::tag, character::complete::none_of, multi::many1, IResult};
 use std::{fmt::Display, str::FromStr};
 
-
 /// Classname representation
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ClassName {
@@ -14,7 +13,8 @@ impl ClassName {
     }
 
     pub fn parse(input: &str) -> IResult<&str, Self> {
-        let (input, parts) = nom::multi::separated_list1(alt((tag("/"), tag("."))), UnqualifiedName::parse)(input)?;
+        let (input, parts) =
+            nom::multi::separated_list1(alt((tag("/"), tag("."))), UnqualifiedName::parse)(input)?;
         Ok((input, Self { parts }))
     }
 

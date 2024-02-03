@@ -49,6 +49,11 @@ impl Thread {
                         return Err(ExecutionError::InstructionParseError { source: e });
                     }
                 };
+                log::debug!(
+                    "Executing instruction: {:?} with current stack: {:?}",
+                    inst,
+                    self.current_frame()
+                );
                 match crate::opcode::Opcode::execute(&inst, self, class_manager) {
                     Ok(InstructionSuccess::Next(n)) => {
                         self.pc += n;
