@@ -140,7 +140,7 @@ mod macros {
                     if let Some(slot2) = frame.operand_stack.pop() {
                         if let (Slot::$ty(value1), Slot::$ty(value2)) = (slot1, slot2) {
                             frame.operand_stack.push(Slot::$ty(
-                                ((value1 as $real_ty) - (value2 as $real_ty)) as $final_ty,
+                                ((value2 as $real_ty) - (value1 as $real_ty)) as $final_ty,
                             ));
                         } else {
                             return Err(InstructionError::InvalidState {
