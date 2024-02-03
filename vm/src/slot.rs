@@ -1,6 +1,8 @@
 use dumpster::Collectable;
+use dumpster::sync::Gc;
+use reader::descriptor::{ArrayType, BaseType, FieldDescriptor, FieldType};
 
-use crate::{alloc::ArrayRef, class::ConstantValue};
+use crate::{alloc::{Array, ArrayRef, ObjectRef}, class::ConstantValue};
 
 #[derive(Debug, Clone, Collectable)]
 pub enum Slot {
@@ -19,7 +21,9 @@ pub enum Slot {
     /// It is an internal implementation detail and should not be used by the user.
     InvokationReturnAddress(u32),
     ArrayReference(ArrayRef),
-    // Object(ClassId),
+    ObjectReference(ObjectRef),
+    /// Basically the Null Pointer representation
+    UndefinedReference,
 }
 
 impl Slot {
@@ -30,8 +34,25 @@ impl Slot {
             | Slot::Float(_)
             | Slot::ReturnAddress(_)
             | Slot::InvokationReturnAddress(_)
-            | Slot::ArrayReference(_) => 1,
+            | Slot::ArrayReference(_)
+            | Slot::ObjectReference(_)
+            | Slot::UndefinedReference => 1,
             Slot::Long(_) | Slot::Double(_) => 2,
+        }
+    }
+
+    pub fn default_for(td: &FieldType) -> Slot {
+        match td {
+            &FieldType::BaseType(BaseType::Byte)
+            | &FieldType::BaseType(BaseType::Char)
+            | &FieldType::BaseType(BaseType::Short)
+            | &FieldType::BaseType(BaseType::Int)
+            | &FieldType::BaseType(BaseType::Boolean) => Slot::Int(0),
+            &FieldType::BaseType(BaseType::Float) => Slot::Float(0.0),
+            &FieldType::BaseType(BaseType::Long) => Slot::Long(0),
+            &FieldType::BaseType(BaseType::Double) => Slot::Double(0.0),
+            &FieldType::ObjectType(_)
+            | &FieldType::ArrayType(_) => Slot::UndefinedReference,
         }
     }
 }

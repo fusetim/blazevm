@@ -2,6 +2,8 @@ use dumpster::{sync::Gc, Collectable};
 use crate::item_array;
 use std::sync::RwLock;
 
+use super::ObjectRef;
+
 /// Garbage collected array reference
 pub type ArrayRef = Gc<Array>;
 
@@ -15,7 +17,7 @@ pub enum Array {
     Byte(ByteArray),
     Char(CharArray),
     Short(ShortArray),
-    //ObjectRef(ArrayRefArray),
+    ObjectRef(ObjectRefArray),
     ArrayRef(ArrayRefArray),
 }
 
@@ -27,6 +29,7 @@ item_array!(ByteArray,    i8, 0);
 item_array!(CharArray,   u16, 0);
 item_array!(ShortArray,  i16, 0);
 item_array!(ArrayRefArray, Option<ArrayRef>, None);
+item_array!(ObjectRefArray, Option<ObjectRef>, None);
 
 
 mod macros {
