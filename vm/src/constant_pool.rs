@@ -235,7 +235,7 @@ impl ConstantPool {
                 cp.mappings.push(0);
             }
         }
-        Ok(dbg!(cp))
+        Ok(cp)
     }
 }
 

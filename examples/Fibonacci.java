@@ -18,6 +18,6 @@ public class Fibonacci {
     }
 
     public static void main() {
-        int rst = imp_fibonacci(100);
+        int rst = imp_fibonacci(40);
     }
 }

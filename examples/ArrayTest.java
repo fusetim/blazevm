@@ -47,5 +47,7 @@ public class ArrayTest {
         double[][] arr = diag(d);
         double tr = tr(arr);
         // Expected result: 10.0
+        rst += tr;
+        // Expected result: 30.0
     }
 }
