@@ -38,7 +38,7 @@ pub struct Class {
     pub name: String,
 
     pub constant_pool: ConstantPool,
-    pub superclass: ClassId,
+    pub superclass: Option<ClassId>,
     pub interfaces: Vec<ClassId>,
     pub flags: FlagSet<ClassAccessFlags>,
     pub fields: Vec<Field>,
@@ -232,6 +232,30 @@ impl Method {
 
     pub fn is_native(&self) -> bool {
         self.flags.contains(MethodAccessFlags::Native)
+    }
+
+    pub fn is_abstract(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Abstract)
+    }
+
+    pub fn is_final(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Final)
+    }
+
+    pub fn is_synchronized(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Synchronized)
+    }
+
+    pub fn is_private(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Private)
+    }
+
+    pub fn is_public(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Public)
+    }
+
+    pub fn is_protected(&self) -> bool {
+        self.flags.contains(MethodAccessFlags::Protected)
     }
 }
 

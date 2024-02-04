@@ -11,7 +11,7 @@ use reader::{
 };
 
 use crate::{
-    class::{self, Class, ClassId},
+    class::{self, Class, ClassId, Method},
     class_loader::{ClassLoader, ClassLoadingError, DerivingError},
     constant_pool::{ConstantPool, ConstantPoolError},
     thread::{ExecutionError, Frame, Thread},
@@ -41,6 +41,7 @@ pub struct ClassManager {
 }
 
 impl ClassManager {
+    /// Create a new class manager.
     pub fn new(class_loader: ClassLoader) -> Self {
         Self {
             class_loader,
@@ -50,6 +51,7 @@ impl ClassManager {
         }
     }
 
+    /// Execute the class initializer
     fn execute_class_init(
         &mut self,
         thread: &mut Thread,
@@ -75,30 +77,36 @@ impl ClassManager {
         Ok(())
     }
 
+    /// Get a class by its ID.
     pub fn get_class_by_id(&self, id: ClassId) -> Option<&LoadedClass> {
         self.classes_by_id.get(&id)
     }
 
+    /// Get a mutable reference to a class by its ID.
     pub fn get_mut_class_by_id(&mut self, id: ClassId) -> Option<&mut LoadedClass> {
         self.classes_by_id.get_mut(&id)
     }
 
+    /// Get a class by its name.
     pub fn get_class_by_name(&self, name: &str) -> Option<&LoadedClass> {
         self.name_map
             .get(name)
             .and_then(|id| self.classes_by_id.get(id))
     }
-
+    
+    /// Get the class ID of a class by its name.
     pub fn id_of_class(&self, name: &str) -> Option<ClassId> {
         self.name_map.get(name).cloned()
     }
 
+    /// Acquire a new class ID.
     pub fn acquire_class_id(&mut self) -> ClassId {
         let id = self.next_class_id;
         self.next_class_id = ClassId(self.next_class_id.0 + 1);
         id
     }
 
+    /// Request the loading of a class by its ID, meaning the class has already been resolved beforehand.
     pub fn request_class_load(&mut self, class_id: ClassId) -> Result<ClassId, ClassLoadingError> {
         match self.classes_by_id.get(&class_id) {
             Some(LoadedClass::Loaded(class)) => Ok(class.id.clone()),
@@ -114,6 +122,7 @@ impl ClassManager {
         }
     }
 
+    /// Get a class by its name, or resolve it if it is not loaded.
     pub fn get_or_resolve_class(
         &mut self,
         class_name: &str,
@@ -224,7 +233,7 @@ impl ClassManager {
                         let class = Class {
                             id: loading.class_id,
                             name: loading.class_name.clone(),
-                            superclass: superclass.map(|x| x.id).unwrap_or(ClassId(0)),
+                            superclass: superclass.map(|x| x.id),
                             interfaces: interfaces.iter().map(|x| x.id).collect(),
                             flags: loading.flags,
                             constant_pool: loading.constant_pool.clone(),
@@ -356,6 +365,66 @@ impl ClassManager {
 
         Ok(class_id)
     }
+
+    /// Determine if this the given class is a superclass of the other class.
+    pub fn is_superclass_of(&self, class_id: &ClassId, other: &ClassId) -> bool {
+        let mut cur = class_id.clone();
+        while &cur != other {
+            let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(&cur) else {
+                return false;
+            };
+            if let Some(super_class) = class.superclass {
+                cur = super_class.clone();
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// Resolve method reference
+    pub fn resolve_method(&mut self, this_class: &ClassId, impl_class: &ClassId, name: &str, descriptor: &MethodDescriptor, special: bool) -> Result<Option<(ClassId, usize)>, ClassLoadingError> {
+        // `invokespecial` particular case resolution
+        if special && name != "<init>" && self.is_superclass_of(impl_class, this_class) {
+            let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(impl_class) else {
+                return Err(ClassLoadingError::NotFound);
+            };
+            if let Some(index) = class.index_of_method(name, descriptor) {
+                return Ok(Some((impl_class.clone(), index)));
+            }
+        }
+
+        // Search for the method in the class and its superclasses
+        // In the same time, collect the superinterfaces to search for, if it fails.
+        let mut cur = Some(impl_class.clone());
+        let mut superinterfaces = Vec::new();
+        while let Some(cid) = cur {
+            let Some(LoadedClass::Loaded(class)) = self.get_class_by_id(cid) else {
+                return Err(ClassLoadingError::NotFound);
+            };
+            if let Some(index) = class.index_of_method(name, descriptor) {
+                return Ok(Some((cid, index)));
+            }
+            superinterfaces.extend(class.interfaces.iter().cloned());
+            cur = class.superclass;
+        }
+
+        // Search for the method in the superinterfaces
+        for cid in superinterfaces {
+            let Some(LoadedClass::Loaded(class)) = self.get_class_by_id(cid) else {
+                return Err(ClassLoadingError::NotFound);
+            };
+            if let Some(index) = class.index_of_method(name, descriptor) {
+                let method = class.methods.get(index).unwrap();
+                if !method.is_private() && !method.is_static() && !method.is_abstract() {
+                    return Ok(Some((cid, index)));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
 }
 
 #[derive(Debug, Clone)]

@@ -1,22 +1,15 @@
 use dumpster::sync::Gc;
-use reader::descriptor::FieldType;
+use reader::descriptor::{class, FieldType};
 
 use super::{InstructionError, InstructionSuccess};
-use crate::alloc::array::*;
-use crate::class::{Class, ClassId, Method};
+use crate::alloc::{array::*, Object, ObjectRef};
+use crate::class::{Class, ClassId, Field, Method};
 use crate::class_manager::{ClassManager, LoadedClass, LoadingClass};
 use crate::constant_pool::ConstantPoolEntry;
 use crate::thread::{Frame, Slot, Thread};
 
-/// `getstatic` gets a static field value of a class, where the field is identified
-///  by field reference in the constant pool index.
-pub fn getstatic(
-    thread: &mut Thread,
-    cm: &mut ClassManager,
-    index: u16,
-) -> Result<InstructionSuccess, InstructionError> {
-    let frame = thread.current_frame_mut().unwrap();
-    let class = frame.class;
+/// Internal helper to get a field from a ClassId and a constant pool index.
+fn intern_get_field(cm: &mut ClassManager, class: ClassId, cp_index: u16) -> Result<(ClassId, &Field, usize), InstructionError> {
     let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(class) else {
         return Err(InstructionError::InvalidState {
             context: format!("Class not found: ClassId({})", class.0),
@@ -26,12 +19,12 @@ pub fn getstatic(
         field_name,
         field_descriptor,
         implementor,
-    }) = class.constant_pool.get_field_ref(index as usize).cloned()
+    }) = class.constant_pool.get_field_ref(cp_index as usize).cloned()
     else {
         return Err(InstructionError::InvalidState {
             context: format!(
                 "FieldRef not found: ClassId({}), constant pool index {}",
-                class.id.0, index
+                class.id.0, cp_index
             ),
         });
     };
@@ -54,12 +47,26 @@ pub fn getstatic(
             ),
         });
     };
+    let field_id = impl_class.index_of_field(&field_name).unwrap();
+    Ok((implementor, field, field_id))
+}
+
+/// `getstatic` gets a static field value of a class, where the field is identified
+///  by field reference in the constant pool index.
+pub fn getstatic(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let class = frame.class;
+    let (implementor, field, _) = intern_get_field(cm, class, index)?;
 
     if !field.is_static() {
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Field is not static: ClassId({}), field name {}, field descriptor {:?}",
-                implementor.0, field_name, field_descriptor
+                implementor.0, field.name, field.descriptor
             ),
         });
     }
@@ -161,6 +168,153 @@ pub fn putstatic(
     Ok(InstructionSuccess::Next(3))
 }
 
+/// `getfield` gets a field value of an object, where the field is identified
+/// by field reference in the constant pool index.
+pub fn getfield(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let objref = match frame.operand_stack.pop() {
+        Some(Slot::ObjectReference(objref)) => objref,
+        Some(Slot::UndefinedReference) => {
+            return Err(InstructionError::InvalidState {
+                context: "Null object reference".into(),
+            });
+        }
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Invalid object reference: {:?}", frame.operand_stack),
+            });
+        }
+    };
+    
+    let (implementor, field, field_id) = intern_get_field(cm, frame.class, index)?;
+
+    // Check if the type is coherent
+    if &implementor != objref.class_id() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field implementor class does not match object class: ClassId({}) != ClassId({})",
+                implementor.0, objref.class_id().0
+            ),
+        });
+    }
+
+    // TODO: Check if the field is accessible
+    // Ensure the field is not static
+    if field.is_static() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field is static: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field.name, field.descriptor
+            ),
+        });
+    }
+    
+    // Retrieve the field value
+    let value = objref.get_field(field_id).ok_or_else(|| {
+        InstructionError::InvalidState {
+            context: format!(
+                "Field not found: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field.name, field.descriptor
+            ),
+        }
+    })?;
+
+    frame.operand_stack.push(value);
+
+    Ok(InstructionSuccess::Next(3))
+}
+
+/// `putfield` sets a field value of an object, where the field is identified
+/// by field reference in the constant pool index.
+pub fn putfield(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let value = frame.operand_stack.pop().ok_or_else(|| {
+        InstructionError::InvalidState {
+            context: "Operand stack is empty".into(),
+        }
+    })?;
+    let objref = match frame.operand_stack.pop() {
+        Some(Slot::ObjectReference(objref)) => objref,
+        Some(Slot::UndefinedReference) => {
+            return Err(InstructionError::InvalidState {
+                context: "Null object reference".into(),
+            });
+        }
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Invalid object reference: {:?}", frame.operand_stack),
+            });
+        }
+    };
+    
+    // Check if we are currently running the initializer of this class
+    let is_initializer = {
+        let Some(LoadedClass::Loaded(cur_class)) = cm.get_class_by_id(frame.class) else {
+            return Err(InstructionError::InvalidState {
+                context: format!("Class not found: ClassId({})", frame.class.0),
+            });
+        };
+        let Some(cur_method) = cur_class.get_method_by_index(frame.method) else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "Method not found: ClassId({}), method index {}",
+                    frame.class.0, frame.method
+                ),
+            });
+        };
+        &cur_method.name == "<init>" && objref.class_id() == &frame.class
+    };
+
+    let (implementor, field, field_id) = intern_get_field(cm, frame.class, index)?;
+
+    // Check if the type is coherent
+    if &implementor != objref.class_id() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field implementor class does not match object class: ClassId({}) != ClassId({})",
+                implementor.0, objref.class_id().0
+            ),
+        });
+    }
+
+    // TODO: Check if the field is accessible
+    // Ensure the field is not static
+    if field.is_static() {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field is static: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field.name, field.descriptor
+            ),
+        });
+    }
+
+    // Ensure the field is not final
+    if field.is_final() && !is_initializer {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Field is final, and this is not an initializer: ClassId({}), field name {}, field descriptor {:?}",
+                implementor.0, field.name, field.descriptor
+            ),
+        });
+    }
+    
+    // TODO: Ensure the field type is coherent
+
+    // Set the field value
+    objref.set_field(field_id, value);
+
+
+    Ok(InstructionSuccess::Next(3))
+}
+
 /// `invokestatic` invokes a static method and puts the result on the operand stack.
 pub fn invokestatic(
     thread: &mut Thread,
@@ -232,6 +386,199 @@ pub fn invokestatic(
     }
 
     invoke(thread, cm, implementor, method_id, args, 3)
+}
+
+/// `invokespecial` invokes a special method and puts the result on the operand stack.
+/// This is used for constructor invokation and private methods.
+pub fn invokespecial(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let Some(Slot::ObjectReference(objref)) = frame.operand_stack.pop() else {
+        return Err(InstructionError::InvalidState {
+            context: format!("Invalid object reference (or null): {:?}", frame.operand_stack),
+        });
+    };
+
+    let (method_name, method_descriptor, implementor) = {
+        let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "Class not found (or not loaded): ClassId({})",
+                    frame.class.0
+                ),
+            });
+        };
+
+        let Some(ConstantPoolEntry::MethodReference {
+            method_name,
+            method_descriptor,
+            implementor,
+        }) = class.constant_pool.get_method_ref(index as usize).cloned()
+        else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "MethodRef not found: ClassId({}), constant pool index {}",
+                    class.id.0, index
+                ),
+            });
+        };
+
+        (method_name, method_descriptor, implementor)
+    };
+
+    let Some((real_impl, method_id)) = cm.resolve_method(objref.class_id(), &implementor, &method_name, &method_descriptor, true)
+        .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Method not found: ClassId({}), method name {}, method descriptor {:?}",
+                implementor.0, method_name, method_descriptor
+            ),
+        });
+    };
+
+    let mut args = Vec::new();
+    args.push(Slot::ObjectReference(objref));
+    for _ in 0..method_descriptor.args_count() {
+        let arg = frame.operand_stack.pop().ok_or_else(|| {
+            InstructionError::InvalidState {
+                context: format!("Operand stack is empty"),
+            }
+        })?;
+        args.push(arg);
+    }
+
+    invoke(thread, cm, real_impl, method_id, args, 3)
+}
+
+/// `invokevirtual` invokes a virtual method and puts the result on the operand stack.
+pub fn invokevirtual(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let Some(Slot::ObjectReference(objref)) = frame.operand_stack.pop() else {
+        return Err(InstructionError::InvalidState {
+            context: format!("Invalid object reference (or null): {:?}", frame.operand_stack),
+        });
+    };
+
+    let (method_name, method_descriptor, implementor) = {
+        let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "Class not found (or not loaded): ClassId({})",
+                    frame.class.0
+                ),
+            });
+        };
+
+        let Some(ConstantPoolEntry::MethodReference {
+            method_name,
+            method_descriptor,
+            implementor,
+        }) = class.constant_pool.get_method_ref(index as usize).cloned()
+        else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "MethodRef not found: ClassId({}), constant pool index {}",
+                    class.id.0, index
+                ),
+            });
+        };
+
+        (method_name, method_descriptor, implementor)
+    };
+
+    let Some((real_impl, method_id)) = cm.resolve_method(objref.class_id(), &implementor, &method_name, &method_descriptor, false)
+        .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Method not found: ClassId({}), method name {}, method descriptor {:?}",
+                implementor.0, method_name, method_descriptor
+            ),
+        });
+    };
+
+    let mut args = Vec::new();
+    args.push(Slot::ObjectReference(objref));
+    for _ in 0..method_descriptor.args_count() {
+        let arg = frame.operand_stack.pop().ok_or_else(|| {
+            InstructionError::InvalidState {
+                context: format!("Operand stack is empty"),
+            }
+        })?;
+        args.push(arg);
+    }
+
+    invoke(thread, cm, real_impl, method_id, args, 3)
+}
+
+/// `invokeinterface` invokes an interface method and puts the result on the operand stack.
+pub fn invokeinterface(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let Some(Slot::ObjectReference(objref)) = frame.operand_stack.pop() else {
+        return Err(InstructionError::InvalidState {
+            context: format!("Invalid object reference (or null): {:?}", frame.operand_stack),
+        });
+    };
+
+    let (method_name, method_descriptor, implementor) = {
+        let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "Class not found (or not loaded): ClassId({})",
+                    frame.class.0
+                ),
+            });
+        };
+
+        let Some(ConstantPoolEntry::InterfaceMethodReference {
+            method_name,
+            method_descriptor,
+            implementor,
+        }) = class.constant_pool.get_method_ref(index as usize).cloned()
+        else {
+            return Err(InstructionError::InvalidState {
+                context: format!(
+                    "MethodRef not found: ClassId({}), constant pool index {}",
+                    class.id.0, index
+                ),
+            });
+        };
+
+        (method_name, method_descriptor, implementor)
+    };
+
+    let Some((real_impl, method_id)) = cm.resolve_method(objref.class_id(), &implementor, &method_name, &method_descriptor, false)
+        .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "Method not found: ClassId({}), method name {}, method descriptor {:?}",
+                implementor.0, method_name, method_descriptor
+            ),
+        });
+    };
+
+    let mut args = Vec::new();
+    args.push(Slot::ObjectReference(objref));
+    for _ in 0..method_descriptor.args_count() {
+        let arg = frame.operand_stack.pop().ok_or_else(|| {
+            InstructionError::InvalidState {
+                context: format!("Operand stack is empty"),
+            }
+        })?;
+        args.push(arg);
+    }
+
+    invoke(thread, cm, real_impl, method_id, args, 5)
 }
 
 fn invoke(
@@ -310,10 +657,31 @@ fn invoke(
     }
 }
 
+/// `new` creates a new object of a given class and pushes a reference to it onto the operand stack.
+pub fn new(thread: &mut Thread, cm: &mut ClassManager, index: u16) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
+        return Err(InstructionError::InvalidState {
+            context: format!("Class not found: ClassId({})", frame.class.0),
+        });
+    };
+    let Some(ConstantPoolEntry::ClassReference(class_id)) = class.constant_pool.get_class_ref(index as usize).cloned() else {
+        return Err(InstructionError::InvalidState {
+            context: format!("ClassRef not found: ClassId({}), constant pool index {}", class.id.0, index),
+        });
+    };
+
+    let obj = Object::new_with_classmanager(cm, class_id).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(class_id).unwrap().name().into(), source: Box::new(err) }
+    })?;
+
+    frame.operand_stack.push(Slot::ObjectReference(Gc::new(obj)));
+    Ok(InstructionSuccess::Next(3))
+}
+
 /// `newarray` creates a new array of a given primitive type and size.
 pub fn newarray(
     thread: &mut Thread,
-    cm: &mut ClassManager,
     atype: u8,
 ) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();

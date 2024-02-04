@@ -35,6 +35,10 @@ impl Thread {
             let Some(method) = class.get_method_by_index(frame.method) else {
                 return Err(ExecutionError::MethodNotLoaded);
             };
+
+            log::debug!("Executing method: {}#{}", class.name, method.name);
+            log::debug!("Current local vars: {:?}", frame.local_variables);
+
             // TODO: Native methods
             let code = method
                 .get_code()
@@ -49,7 +53,7 @@ impl Thread {
                         return Err(ExecutionError::InstructionParseError { source: e });
                     }
                 };
-                log::debug!(
+                log::trace!(
                     "Executing instruction: {:?} with current stack: {:?}",
                     inst,
                     self.current_frame()

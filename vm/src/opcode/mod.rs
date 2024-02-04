@@ -466,7 +466,14 @@ pub fn read_instruction(mut reader: impl Read + Seek) -> Result<(usize, Opcode),
         0xb6 => opcode_with_operand2!(reader, InvokeVirtual),
         0xb7 => opcode_with_operand2!(reader, InvokeSpecial),
         0xb8 => opcode_with_operand2!(reader, InvokeStatic),
-        0xb9 => opcode_with_operand2!(reader, InvokeInterface),
+        0xb9 => {
+            // For historical reasons, the operand of the invokeinterface instruction is 4 bytes long.
+            // The first two bytes are the indexbyte1 and indexbyte2 bytes of the instruction, and the 3rd and 4th ones
+            // can be ignored.
+            let mut buf = [0u8; 4];
+            reader.read_exact(&mut buf)?;
+            Ok((5, Opcode::InvokeInterface(u16::from_be_bytes([buf[0], buf[1]]))))
+        },
         0xba => opcode_with_operand2!(reader, InvokeDynamic),
         0xbb => opcode_with_operand2!(reader, New),
         0xbc => opcode_with_operand1!(reader, NewArray),
@@ -691,11 +698,15 @@ impl Opcode {
             Opcode::Return => control::vreturn(thread),
             Opcode::GetStatic(index) => reference::getstatic(thread, cm, *index),
             Opcode::PutStatic(index) => reference::putstatic(thread, cm, *index),
-            // TODO: Implement GetField and PutField
-            // TODO: Implement InvokeVirtual, InvokeSpecial, InvokeInterface, and InvokeDynamic
+            Opcode::GetField(index) => reference::getfield(thread, cm, *index),
+            Opcode::PutField(index) => reference::putfield(thread, cm, *index),
+            Opcode::InvokeVirtual(index) => reference::invokevirtual(thread, cm, *index),
+            Opcode::InvokeSpecial(index) => reference::invokespecial(thread, cm, *index),
+            Opcode::InvokeInterface(index) => reference::invokeinterface(thread, cm, *index),
+            // TODO: Implement InvokeDynamic
             Opcode::InvokeStatic(index) => reference::invokestatic(thread, cm, *index),
-            // TODO: Implement New
-            Opcode::NewArray(atype) => reference::newarray(thread, cm, *atype),
+            Opcode::New(index) => reference::new(thread, cm, *index),
+            Opcode::NewArray(atype) => reference::newarray(thread, *atype),
             Opcode::ANewArray(index) => reference::anewarray(thread, cm, *index),
             Opcode::ArrayLength => reference::arraylength(thread),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
