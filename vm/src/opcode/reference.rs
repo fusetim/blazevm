@@ -35,7 +35,9 @@ pub fn getstatic(
             ),
         });
     };
-    cm.request_class_load(implementor.clone());
+    cm.request_class_load(implementor.clone()).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+    })?;
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(implementor.clone()) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -108,7 +110,9 @@ pub fn putstatic(
             implementor.clone(),
         )
     };
-    cm.request_class_load(implementor.clone());
+    cm.request_class_load(implementor.clone()).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+    })?;
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_mut_class_by_id(implementor.clone()) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -191,7 +195,9 @@ pub fn invokestatic(
         (method_name, method_descriptor, implementor)
     };
 
-    cm.request_class_load(implementor.clone());
+    cm.request_class_load(implementor.clone()).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+    })?;
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(implementor) else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -286,7 +292,7 @@ fn invoke(
         let mut arg_pos = 0;
         for arg in args.into_iter() {
             match arg {
-                Slot::Int(_) | Slot::Float(_) => {
+                Slot::Int(_) | Slot::Float(_) | Slot::UndefinedReference | Slot::ArrayReference(_) | Slot::ObjectReference(_) | Slot::ReturnAddress(_) => {
                     frame.local_variables[arg_pos] = arg;
                     arg_pos += 1;
                 }

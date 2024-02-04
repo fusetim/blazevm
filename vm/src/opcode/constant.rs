@@ -72,7 +72,7 @@ pub fn ldc(
         // TODO: Implement String reference and Class reference.
         _ => {
             return Err(InstructionError::InvalidState {
-                context: "Invalid constant pool entry".into(),
+                context: format!("Invalid constant pool entry at {}: {:?}", value, constant),
             });
         }
     }
@@ -104,7 +104,7 @@ pub fn ldc_w(
         // TODO: Implement String reference and Class reference.
         _ => {
             return Err(InstructionError::InvalidState {
-                context: "Invalid constant pool entry".into(),
+                context: format!("Invalid constant pool entry at {}: {:?}", value, constant),
             });
         }
     }
@@ -136,7 +136,7 @@ pub fn ldc2_w(
         // TODO: Implement dynamic reference.
         _ => {
             return Err(InstructionError::InvalidState {
-                context: "Invalid constant pool entry".into(),
+                context: format!("Invalid constant pool entry at {}: {:?}", value, constant),
             });
         }
     }

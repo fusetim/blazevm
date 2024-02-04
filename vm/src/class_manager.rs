@@ -106,7 +106,7 @@ impl ClassManager {
                 let name = x.name().to_string();
                 match self.get_or_resolve_class(&name) {
                     Ok(LoadedClass::Loaded(class)) => Ok(class.id.clone()),
-                    Ok(_) => Err(ClassLoadingError::NotFound),
+                    Ok(_) => Err(ClassLoadingError::Unknown),
                     Err(err) => Err(err),
                 }
             }
@@ -118,153 +118,146 @@ impl ClassManager {
         &mut self,
         class_name: &str,
     ) -> Result<&LoadedClass, ClassLoadingError> {
-        if !self.name_map.contains_key(class_name) {
-            let mut init_thread = Thread::new();
-            let mut stack: Vec<String> = Vec::new();
-            stack.push(class_name.to_string());
-            while let Some(class_name) = stack.pop() {
-                if let Some(class) = self.get_class_by_name(&class_name) {
-                    let class = class.clone();
-                    match class {
-                        LoadedClass::Loaded(_) => (),
-                        LoadedClass::Resolved(resolved) => {
-                            log::debug!(
-                                "Resolving/Loading class dependencies for {}...",
-                                &class_name
-                            );
-                            // Run the loading of the dependencies.
-                            let mut unresolved = Vec::new();
-                            for (dependency, required) in &resolved.class_dependencies {
-                                if !self.name_map.contains_key(dependency) {
-                                    unresolved.push((dependency.clone(), required));
-                                }
+        let mut init_thread = Thread::new();
+        let mut stack: Vec<String> = Vec::new();
+        stack.push(class_name.to_string());
+        while let Some(class_name) = stack.pop() {
+            if let Some(class) = self.get_class_by_name(&class_name) {
+                let class = class.clone();
+                match class {
+                    LoadedClass::Loaded(_) => (),
+                    LoadedClass::Resolved(resolved) => {
+                        log::debug!(
+                            "Resolving/Loading class dependencies for {}...",
+                            &class_name
+                        );
+                        // Run the loading of the dependencies.
+                        let mut unresolved = Vec::new();
+                        for (dependency, required) in &resolved.class_dependencies {
+                            if !self.name_map.contains_key(dependency) {
+                                unresolved.push((dependency.clone(), required));
                             }
-                            stack.push(class_name.clone());
-                            for (dependency, required) in unresolved {
-                                let classfile = self.class_loader.load_classfile(&dependency)?;
-                                self.resolve_class(classfile)?;
-
-                                // If the dependency is required, we must load it before the current class.
-                                if *required {
-                                    stack.push(dependency);
-                                }
-                            }
-
-                            // Once the dependencies are resolved (all of them has at least a ClassId),
-                            // we can create the LoadingClass, and construct the constantpool, fields and methods.
-                            let loaded_class = LoadedClass::Loading(LoadingClass {
-                                class_id: resolved.class_id,
-                                class_name: class_name.to_string(),
-                                super_class: resolved.super_class,
-                                interfaces: resolved.interfaces,
-                                flags: resolved.classfile.access_flags().clone(),
-                                constant_pool: ConstantPool::from_classfile(
-                                    self,
-                                    resolved.classfile.constant_pool(),
-                                )?,
-                                fields: resolved
-                                    .classfile
-                                    .fields()
-                                    .iter()
-                                    .map(|field| {
-                                        class::Field::try_from_classfile(
-                                            self,
-                                            resolved.classfile.constant_pool(),
-                                            field,
-                                        )
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()?,
-                                methods: resolved
-                                    .classfile
-                                    .methods()
-                                    .iter()
-                                    .map(|method| {
-                                        class::Method::try_from_classfile(
-                                            self,
-                                            resolved.classfile.constant_pool(),
-                                            method,
-                                        )
-                                    })
-                                    .collect::<Result<Vec<_>, _>>()?,
-                            });
-
-                            // Update the class manager with the loading class.
-                            self.classes_by_id.insert(loaded_class.id(), loaded_class);
                         }
-                        LoadedClass::Loading(loading) => {
-                            log::debug!("Initializing class {}...", &class_name);
-                            // We will assume that the supe classes and interfaces have been loaded from now on.
-                            // Therefore we just have to create the real loaded class.
-                            let superclass = if let Some(superclass_name) = &loading.super_class {
-                                match self.get_class_by_name(superclass_name) {
-                                    Some(class) => match class {
-                                        LoadedClass::Loaded(class) => Some(class.clone()),
-                                        LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
-                                            return Err(DerivingError::SuperClassNotLoaded.into())
-                                        }
-                                    },
-                                    None => return Err(DerivingError::SuperClassNotLoaded.into()),
-                                }
-                            } else {
-                                None
-                            };
+                        stack.push(class_name.clone());
+                        for (dependency, required) in unresolved {
+                            let classfile = self.class_loader.load_classfile(&dependency)?;
+                            self.resolve_class(classfile)?;
 
-                            let mut interfaces = Vec::new();
-                            for interface_name in &loading.interfaces {
-                                match self.get_class_by_name(interface_name) {
-                                    Some(class) => match class {
-                                        LoadedClass::Loaded(class) => {
-                                            interfaces.push(class.clone())
-                                        }
-                                        LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
-                                            return Err(
-                                                DerivingError::SuperInterfaceNotLoaded.into()
-                                            )
-                                        }
-                                    },
-                                    None => {
+                            // If the dependency is required, we must load it before the current class.
+                            if *required {
+                                stack.push(dependency);
+                            }
+                        }
+
+                        // Once the dependencies are resolved (all of them has at least a ClassId),
+                        // we can create the LoadingClass, and construct the constantpool, fields and methods.
+                        let loaded_class = LoadedClass::Loading(LoadingClass {
+                            class_id: resolved.class_id,
+                            class_name: class_name.to_string(),
+                            super_class: resolved.super_class,
+                            interfaces: resolved.interfaces,
+                            flags: resolved.classfile.access_flags().clone(),
+                            constant_pool: ConstantPool::from_classfile(
+                                self,
+                                resolved.classfile.constant_pool(),
+                            )?,
+                            fields: resolved
+                                .classfile
+                                .fields()
+                                .iter()
+                                .map(|field| {
+                                    class::Field::try_from_classfile(
+                                        self,
+                                        resolved.classfile.constant_pool(),
+                                        field,
+                                    )
+                                })
+                                .collect::<Result<Vec<_>, _>>()?,
+                            methods: resolved
+                                .classfile
+                                .methods()
+                                .iter()
+                                .map(|method| {
+                                    class::Method::try_from_classfile(
+                                        self,
+                                        resolved.classfile.constant_pool(),
+                                        method,
+                                    )
+                                })
+                                .collect::<Result<Vec<_>, _>>()?,
+                        });
+
+                        // Update the class manager with the loading class.
+                        self.classes_by_id.insert(loaded_class.id(), loaded_class);
+                    }
+                    LoadedClass::Loading(loading) => {
+                        log::debug!("Initializing class {}...", &class_name);
+                        // We will assume that the supe classes and interfaces have been loaded from now on.
+                        // Therefore we just have to create the real loaded class.
+                        let superclass = if let Some(superclass_name) = &loading.super_class {
+                            match self.get_class_by_name(superclass_name) {
+                                Some(class) => match class {
+                                    LoadedClass::Loaded(class) => Some(class.clone()),
+                                    LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
+                                        return Err(DerivingError::SuperClassNotLoaded.into())
+                                    }
+                                },
+                                None => return Err(DerivingError::SuperClassNotLoaded.into()),
+                            }
+                        } else {
+                            None
+                        };
+
+                        let mut interfaces = Vec::new();
+                        for interface_name in &loading.interfaces {
+                            match self.get_class_by_name(interface_name) {
+                                Some(class) => match class {
+                                    LoadedClass::Loaded(class) => interfaces.push(class.clone()),
+                                    LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
                                         return Err(DerivingError::SuperInterfaceNotLoaded.into())
                                     }
-                                }
-                            }
-
-                            let class = Class {
-                                id: loading.class_id,
-                                name: loading.class_name.clone(),
-                                superclass: superclass.map(|x| x.id).unwrap_or(ClassId(0)),
-                                interfaces: interfaces.iter().map(|x| x.id).collect(),
-                                flags: loading.flags,
-                                constant_pool: loading.constant_pool.clone(),
-                                fields: loading.fields.clone(),
-                                methods: loading.methods.clone(),
-                                initialized: OnceCell::new(),
-                            };
-                            class.initialized.set(false).unwrap();
-
-                            let loaded_class = LoadedClass::Loaded(class);
-
-                            // Update the class manager with the fully loaded class.
-                            let _ = self.name_map.insert(class_name.clone(), loaded_class.id());
-                            let _ = self
-                                .classes_by_id
-                                .insert(loading.class_id, loaded_class.clone());
-
-                            // Invoke the class initializer.
-                            log::debug!("Invoking class initializer for {}", &loading.class_name);
-                            if let Err(err) =
-                                self.execute_class_init(&mut init_thread, &loading.class_id)
-                            {
-                                return Err(ClassLoadingError::InitializerError { source: err });
+                                },
+                                None => return Err(DerivingError::SuperInterfaceNotLoaded.into()),
                             }
                         }
+
+                        let class = Class {
+                            id: loading.class_id,
+                            name: loading.class_name.clone(),
+                            superclass: superclass.map(|x| x.id).unwrap_or(ClassId(0)),
+                            interfaces: interfaces.iter().map(|x| x.id).collect(),
+                            flags: loading.flags,
+                            constant_pool: loading.constant_pool.clone(),
+                            fields: loading.fields.clone(),
+                            methods: loading.methods.clone(),
+                            initialized: OnceCell::new(),
+                        };
+                        class.initialized.set(false).unwrap();
+
+                        let loaded_class = LoadedClass::Loaded(class);
+
+                        // Update the class manager with the fully loaded class.
+                        let _ = self.name_map.insert(class_name.clone(), loaded_class.id());
+                        let _ = self
+                            .classes_by_id
+                            .insert(loading.class_id, loaded_class.clone());
+
+                        // Invoke the class initializer.
+                        log::debug!("Invoking class initializer for {}", &loading.class_name);
+                        if let Err(err) =
+                            self.execute_class_init(&mut init_thread, &loading.class_id)
+                        {
+                            return Err(ClassLoadingError::InitializerError { source: err });
+                        }
                     }
-                } else {
-                    let classfile = self.class_loader.load_classfile(&class_name)?;
-                    self.resolve_class(classfile)?;
-                    stack.push(class_name);
                 }
+            } else {
+                let classfile = self.class_loader.load_classfile(&class_name)?;
+                self.resolve_class(classfile)?;
+                stack.push(class_name);
             }
         }
+
         Ok(self.get_class_by_name(class_name).unwrap())
     }
 

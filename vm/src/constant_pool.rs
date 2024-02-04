@@ -37,7 +37,7 @@ impl ConstantPool {
         if index == 0 || index >= self.mappings.len() {
             return None;
         }
-        let map = self.mappings.get(index - 1)?;
+        let map = self.mappings.get(index)?;
         self.entries.get(*map)
     }
 
@@ -74,7 +74,8 @@ impl ConstantPool {
     }
 
     fn append(&mut self, entry: ConstantPoolEntry) {
-        self.entries.push(entry)
+        self.entries.push(entry);
+        self.mappings.push(self.entries.len() - 1);
     }
 
     pub fn from_classfile(
@@ -198,7 +199,7 @@ impl ConstantPool {
                     }
                     ClassfileConstantPoolInfo::ClassInfo(info) => {
                         let class_name = classfile_cp
-                            .get_class_name(info.name_index as usize)
+                            .get_utf8_string(info.name_index as usize)
                             .ok_or_else(|| ConstantPoolError::InvalidClassNameReference {
                                 index: info.name_index as usize,
                             })?;
@@ -226,15 +227,15 @@ impl ConstantPool {
                     }
                     _ => {
                         log::trace!("Constant pool entry not necessary or unimplemented, ignored in RtConstantPool: {:?}", entry);
+                        cp.mappings.push(0);
                     }
                 }
-                cp.mappings.push(cp.entries.len());
             } else {
                 // Tombstone, this entry is not used.
                 cp.mappings.push(0);
             }
         }
-        Ok(cp)
+        Ok(dbg!(cp))
     }
 }
 

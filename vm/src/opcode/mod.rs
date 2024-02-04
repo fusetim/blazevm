@@ -705,6 +705,12 @@ impl Opcode {
 
 #[derive(Debug, Snafu)]
 pub enum InstructionError {
+    #[snafu(display("Class loading error for class {}: {}", class_name, source))]
+    ClassLoadingError {
+        class_name: String,
+        source: Box<crate::class_loader::ClassLoadingError>,
+    },
+
     #[snafu(display("Invalid state: {}", context))]
     InvalidState { context: String },
 
