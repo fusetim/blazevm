@@ -8,7 +8,7 @@ public class ObjectTest {
         int a = ObjectTest.INSTANCE.get();
         ObjectTest.INSTANCE.incr();
         int b = ObjectTest.INSTANCE.get();
-        ObjectTest.INSTANCE.incr();
+        ObjectTest.INSTANCE.add(substract(20, 10));
         int c = ObjectTest.INSTANCE.get();
     }
 
@@ -18,5 +18,13 @@ public class ObjectTest {
 
     public void incr() {
         this.count++;
+    }
+
+    public void add(int value) {
+        this.count += value;
+    }
+
+    public static int substract(int a, int b) {
+        return a - b;
     }
 }

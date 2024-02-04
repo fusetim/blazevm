@@ -131,11 +131,15 @@ pub enum ClassLoadingError {
 
 #[derive(Debug, Snafu)]
 pub enum DerivingError {
-    #[snafu(display("Super class not loaded"))]
-    SuperClassNotLoaded,
+    #[snafu(display("Super class not loaded: {}", class_name))]
+    SuperClassNotLoaded {
+        class_name: String,
+    },
 
-    #[snafu(display("Interface not loaded"))]
-    SuperInterfaceNotLoaded,
+    #[snafu(display("Interface not loaded: {}", interface_name))]
+    SuperInterfaceNotLoaded {
+        interface_name: String,
+    },
 
     #[snafu(display("Circular dependency (class {} is dependent of itself)", class_name))]
     CircularDependency { class_name: String },

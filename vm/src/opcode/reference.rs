@@ -375,6 +375,7 @@ pub fn invokestatic(
         let arg = frame.operand_stack.pop().unwrap();
         args.push(arg);
     }
+    args.reverse();
 
     if !method.is_static() {
         return Err(InstructionError::InvalidState {
@@ -396,11 +397,7 @@ pub fn invokespecial(
     index: u16,
 ) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
-    let Some(Slot::ObjectReference(objref)) = frame.operand_stack.pop() else {
-        return Err(InstructionError::InvalidState {
-            context: format!("Invalid object reference (or null): {:?}", frame.operand_stack),
-        });
-    };
+    let this_class = frame.class;
 
     let (method_name, method_descriptor, implementor) = {
         let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
@@ -429,7 +426,10 @@ pub fn invokespecial(
         (method_name, method_descriptor, implementor)
     };
 
-    let Some((real_impl, method_id)) = cm.resolve_method(objref.class_id(), &implementor, &method_name, &method_descriptor, true)
+    cm.request_class_load(implementor.clone()).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+    })?;
+    let Some((real_impl, method_id)) = cm.resolve_method(&this_class, &implementor, &method_name, &method_descriptor, true)
         .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -440,7 +440,6 @@ pub fn invokespecial(
     };
 
     let mut args = Vec::new();
-    args.push(Slot::ObjectReference(objref));
     for _ in 0..method_descriptor.args_count() {
         let arg = frame.operand_stack.pop().ok_or_else(|| {
             InstructionError::InvalidState {
@@ -449,6 +448,22 @@ pub fn invokespecial(
         })?;
         args.push(arg);
     }
+    let objref = match frame.operand_stack.pop() {
+        Some(Slot::ObjectReference(objref)) => objref,
+        Some(Slot::UndefinedReference) => {
+            return Err(InstructionError::InvalidState {
+                context: "Null object reference".into(),
+            });
+        }
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Operand stack is empty, expected object reference"),
+            });
+        }
+    };
+    // TODO: Check if the type is coherent
+    args.push(Slot::ObjectReference(objref));
+    args.reverse();
 
     invoke(thread, cm, real_impl, method_id, args, 3)
 }
@@ -460,11 +475,7 @@ pub fn invokevirtual(
     index: u16,
 ) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
-    let Some(Slot::ObjectReference(objref)) = frame.operand_stack.pop() else {
-        return Err(InstructionError::InvalidState {
-            context: format!("Invalid object reference (or null): {:?}", frame.operand_stack),
-        });
-    };
+    let this_class = frame.class;
 
     let (method_name, method_descriptor, implementor) = {
         let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
@@ -493,7 +504,10 @@ pub fn invokevirtual(
         (method_name, method_descriptor, implementor)
     };
 
-    let Some((real_impl, method_id)) = cm.resolve_method(objref.class_id(), &implementor, &method_name, &method_descriptor, false)
+    cm.request_class_load(implementor.clone()).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+    })?;
+    let Some((real_impl, method_id)) = cm.resolve_method(&this_class, &implementor, &method_name, &method_descriptor, false)
         .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -504,7 +518,6 @@ pub fn invokevirtual(
     };
 
     let mut args = Vec::new();
-    args.push(Slot::ObjectReference(objref));
     for _ in 0..method_descriptor.args_count() {
         let arg = frame.operand_stack.pop().ok_or_else(|| {
             InstructionError::InvalidState {
@@ -513,6 +526,22 @@ pub fn invokevirtual(
         })?;
         args.push(arg);
     }
+    let objref = match frame.operand_stack.pop() {
+        Some(Slot::ObjectReference(objref)) => objref,
+        Some(Slot::UndefinedReference) => {
+            return Err(InstructionError::InvalidState {
+                context: "Null object reference".into(),
+            });
+        }
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Operand stack is empty, expected object reference"),
+            });
+        }
+    };
+    // TODO: Check if the type is coherent
+    args.push(Slot::ObjectReference(objref));
+    args.reverse();
 
     invoke(thread, cm, real_impl, method_id, args, 3)
 }
@@ -524,11 +553,7 @@ pub fn invokeinterface(
     index: u16,
 ) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
-    let Some(Slot::ObjectReference(objref)) = frame.operand_stack.pop() else {
-        return Err(InstructionError::InvalidState {
-            context: format!("Invalid object reference (or null): {:?}", frame.operand_stack),
-        });
-    };
+    let this_class = frame.class;
 
     let (method_name, method_descriptor, implementor) = {
         let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
@@ -557,7 +582,10 @@ pub fn invokeinterface(
         (method_name, method_descriptor, implementor)
     };
 
-    let Some((real_impl, method_id)) = cm.resolve_method(objref.class_id(), &implementor, &method_name, &method_descriptor, false)
+    cm.request_class_load(implementor.clone()).map_err(|err| {
+        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+    })?;
+    let Some((real_impl, method_id)) = cm.resolve_method(&this_class, &implementor, &method_name, &method_descriptor, false)
         .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -568,7 +596,6 @@ pub fn invokeinterface(
     };
 
     let mut args = Vec::new();
-    args.push(Slot::ObjectReference(objref));
     for _ in 0..method_descriptor.args_count() {
         let arg = frame.operand_stack.pop().ok_or_else(|| {
             InstructionError::InvalidState {
@@ -577,6 +604,22 @@ pub fn invokeinterface(
         })?;
         args.push(arg);
     }
+    let objref = match frame.operand_stack.pop() {
+        Some(Slot::ObjectReference(objref)) => objref,
+        Some(Slot::UndefinedReference) => {
+            return Err(InstructionError::InvalidState {
+                context: "Null object reference".into(),
+            });
+        }
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Operand stack is empty, expected object reference"),
+            });
+        }
+    };
+    // TODO: Check if the type is coherent
+    args.push(Slot::ObjectReference(objref));
+    args.reverse();
 
     invoke(thread, cm, real_impl, method_id, args, 5)
 }

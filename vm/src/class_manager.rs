@@ -143,8 +143,11 @@ impl ClassManager {
                         // Run the loading of the dependencies.
                         let mut unresolved = Vec::new();
                         for (dependency, required) in &resolved.class_dependencies {
-                            if !self.name_map.contains_key(dependency) {
-                                unresolved.push((dependency.clone(), required));
+                            match self.get_class_by_name(dependency) {
+                                Some(LoadedClass::Loaded(_)) => (),
+                                _ => {
+                                    unresolved.push((dependency.clone(), required));
+                                }
                             }
                         }
                         stack.push(class_name.clone());
@@ -208,10 +211,10 @@ impl ClassManager {
                                 Some(class) => match class {
                                     LoadedClass::Loaded(class) => Some(class.clone()),
                                     LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
-                                        return Err(DerivingError::SuperClassNotLoaded.into())
+                                        return Err(DerivingError::SuperClassNotLoaded { class_name: superclass_name.clone() }.into())
                                     }
                                 },
-                                None => return Err(DerivingError::SuperClassNotLoaded.into()),
+                                None => return Err(DerivingError::SuperClassNotLoaded { class_name: superclass_name.clone() }.into()),
                             }
                         } else {
                             None
@@ -223,10 +226,10 @@ impl ClassManager {
                                 Some(class) => match class {
                                     LoadedClass::Loaded(class) => interfaces.push(class.clone()),
                                     LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
-                                        return Err(DerivingError::SuperInterfaceNotLoaded.into())
+                                        return Err(DerivingError::SuperInterfaceNotLoaded { interface_name: interface_name.clone() }.into())
                                     }
                                 },
-                                None => return Err(DerivingError::SuperInterfaceNotLoaded.into()),
+                                None => return Err(DerivingError::SuperInterfaceNotLoaded { interface_name: interface_name.clone() }.into()),
                             }
                         }
 
