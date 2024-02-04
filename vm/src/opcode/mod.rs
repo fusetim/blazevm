@@ -694,6 +694,10 @@ impl Opcode {
             // TODO: Implement GetField and PutField
             // TODO: Implement InvokeVirtual, InvokeSpecial, InvokeInterface, and InvokeDynamic
             Opcode::InvokeStatic(index) => reference::invokestatic(thread, cm, *index),
+            // TODO: Implement New
+            Opcode::NewArray(atype) => reference::newarray(thread, cm, *atype),
+            Opcode::ANewArray(index) => reference::anewarray(thread, cm, *index),
+            Opcode::ArrayLength => reference::arraylength(thread),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
         }
     }

@@ -85,6 +85,7 @@ pub fn aastore(thread: &mut Thread) -> Result<InstructionSuccess, InstructionErr
         });
     };
     match array_ref.as_ref() {
+        // TODO: Check if the actual type of the array value is compatible with the array type.
         &Array::ArrayRef(ref array) => match value {
             Slot::ArrayReference(value) => {
                 array.set(index as usize, Some(value));

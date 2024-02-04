@@ -1,4 +1,8 @@
+use dumpster::sync::Gc;
+use reader::descriptor::FieldType;
+
 use super::{InstructionError, InstructionSuccess};
+use crate::alloc::array::*;
 use crate::class::{Class, ClassId, Method};
 use crate::class_manager::{ClassManager, LoadedClass, LoadingClass};
 use crate::constant_pool::ConstantPoolEntry;
@@ -298,4 +302,139 @@ fn invoke(
         }
         Ok(InstructionSuccess::FrameChange(0))
     }
+}
+
+/// `newarray` creates a new array of a given primitive type and size.
+pub fn newarray(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    atype: u8,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let count = frame.operand_stack.pop().unwrap();
+    let count = match count {
+        Slot::Int(count) => count,
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Invalid count type: {:?}", count),
+            });
+        }
+    };
+    if count < 0 {
+        return Err(InstructionError::InvalidState {
+            context: format!("newarray - count is negative: {}", count),
+        });
+    }
+    let array = match atype {
+        4 => {
+            let array = BoolArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        5 => {
+            let array = CharArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        6 => {
+            let array = FloatArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        7 => {
+            let array = DoubleArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        8 => {
+            let array = ByteArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        9 => {
+            let array = ShortArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        10 => {
+            let array = IntArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        11 => {
+            let array = LongArray::new(count as usize);
+            Slot::ArrayReference(Gc::new(array.into()))
+        }
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("newarray - invalid atype: {}", atype),
+            });
+        }
+    };
+    frame.operand_stack.push(array);
+    Ok(InstructionSuccess::Next(2))
+}
+
+/// `anewarray` creates a new array of a given reference type and size.
+pub fn anewarray(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let count = frame.operand_stack.pop().unwrap();
+    let count = match count {
+        Slot::Int(count) => count,
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("Invalid count type: {:?}", count),
+            });
+        }
+    };
+    if count < 0 {
+        return Err(InstructionError::InvalidState {
+            context: format!("anewarray - count is negative: {}", count),
+        });
+    }
+
+    let class = cm.get_class_by_id(frame.class).unwrap();
+    let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
+        return Err(InstructionError::InvalidState {
+            context: format!("Class not found: ClassId({})", frame.class.0),
+        });
+    };
+    if let Some(ConstantPoolEntry::ClassReference(class_id)) =
+        class.constant_pool.get_class_ref(index as usize)
+    {
+        // It is an object reference
+        let arr = ObjectRefArray::new(class_id.clone(), count as usize);
+        frame
+            .operand_stack
+            .push(Slot::ArrayReference(Gc::new(arr.into())));
+    } else if let Some(ConstantPoolEntry::ArrayReference(FieldType::ArrayType(item_ty))) =
+        class.constant_pool.get_array_ref(index as usize)
+    {
+        // It is an array reference
+        let arr = ArrayRefArray::new(item_ty.clone(), count as usize);
+        frame
+            .operand_stack
+            .push(Slot::ArrayReference(Gc::new(arr.into())));
+    } else {
+        return Err(InstructionError::InvalidState {
+            context: format!(
+                "anewarray - ClassRef/ArrayRef not found: ClassId({}), constant pool index {}",
+                class.id.0, index
+            ),
+        });
+    }
+    Ok(InstructionSuccess::Next(3))
+}
+
+/// `arraylength` gets the length of an array and pushes it onto the operand stack.
+pub fn arraylength(thread: &mut Thread) -> Result<InstructionSuccess, InstructionError> {
+    let frame = thread.current_frame_mut().unwrap();
+    let array_ref = frame.operand_stack.pop().unwrap();
+    let len = match array_ref {
+        Slot::ArrayReference(array_ref) => array_ref.len(),
+        _ => {
+            return Err(InstructionError::InvalidState {
+                context: format!("arraylength - invalid array reference: {:?}", array_ref),
+            });
+        }
+    };
+    frame.operand_stack.push(Slot::Int(len as i32));
+    Ok(InstructionSuccess::Next(1))
 }

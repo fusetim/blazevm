@@ -147,7 +147,7 @@ pub enum ConstantPoolInfo {
 #[derive(BinRead, Debug, Clone)]
 #[br(big)]
 pub struct ClassInfo {
-    name_index: U2,
+    pub name_index: U2,
 }
 
 impl ClassInfo {

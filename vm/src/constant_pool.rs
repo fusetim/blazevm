@@ -3,7 +3,9 @@ use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry
 use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
 use reader::base::ConstantPool as ClassfileConstantPool;
 use reader::descriptor;
+use reader::descriptor::ClassName;
 use reader::descriptor::FieldDescriptor;
+use reader::descriptor::FieldType;
 use reader::descriptor::MethodDescriptor;
 use snafu::{ResultExt, Snafu};
 
@@ -51,6 +53,22 @@ impl ConstantPool {
         let entry = self.get(index)?;
         match entry {
             ConstantPoolEntry::MethodReference { .. } => Some(entry),
+            _ => None,
+        }
+    }
+
+    pub fn get_class_ref(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        let entry = self.get(index)?;
+        match entry {
+            ConstantPoolEntry::ClassReference(_) => Some(entry),
+            _ => None,
+        }
+    }
+
+    pub fn get_array_ref(&self, index: usize) -> Option<&ConstantPoolEntry> {
+        let entry = self.get(index)?;
+        match entry {
+            ConstantPoolEntry::ArrayReference(_) => Some(entry),
             _ => None,
         }
     }
@@ -178,6 +196,34 @@ impl ConstantPool {
                             implementor,
                         });
                     }
+                    ClassfileConstantPoolInfo::ClassInfo(info) => {
+                        let class_name = classfile_cp
+                            .get_class_name(info.name_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidClassNameReference {
+                                index: info.name_index as usize,
+                            })?;
+                        if class_name.starts_with("[") {
+                            let field_type = descriptor::parse_field_descriptor(&class_name)
+                                .map_err(|err| ConstantPoolError::InvalidDescriptor {
+                                    index: info.name_index as usize,
+                                    source: err,
+                                })?;
+                            cp.append(ConstantPoolEntry::ArrayReference(
+                                field_type.field_type().clone(),
+                            ));
+                        } else {
+                            let class_id = cm
+                                .id_of_class(&class_name)
+                                .ok_or_else(|| {
+                                    log::debug!(target:"rt::constantpool::classinfo", "Class loading failure (name: {})", &class_name);
+                                    ConstantPoolError::ClassLoadingFailure {
+                                        class_name: class_name.to_string(),
+                                        context: Some(format!("ClassInfo at index {}", info.name_index as usize))
+                                    }
+                                })?;
+                            cp.append(ConstantPoolEntry::ClassReference(class_id));
+                        }
+                    }
                     _ => {
                         log::trace!("Constant pool entry not necessary or unimplemented, ignored in RtConstantPool: {:?}", entry);
                     }
@@ -245,6 +291,8 @@ pub enum ConstantPoolEntry {
         method_descriptor: MethodDescriptor,
         implementor: ClassId,
     },
+    ClassReference(ClassId),
+    ArrayReference(FieldType),
     // MethodHandleReference(MethodHandleReference),
     // MethodTypeReference(String),
 }
