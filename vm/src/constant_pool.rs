@@ -1,12 +1,15 @@
 use dumpster::Collectable;
 use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry;
 use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
+use reader::base::constant_pool::ReferenceKind;
+use reader::base::ClassFile;
 use reader::base::ConstantPool as ClassfileConstantPool;
 use reader::descriptor;
 use reader::descriptor::ClassName;
 use reader::descriptor::FieldDescriptor;
 use reader::descriptor::FieldType;
 use reader::descriptor::MethodDescriptor;
+use reader::descriptor::UnqualifiedName;
 use snafu::{ResultExt, Snafu};
 
 use crate::class::ClassId;
@@ -80,8 +83,9 @@ impl ConstantPool {
 
     pub fn from_classfile(
         cm: &mut ClassManager,
-        classfile_cp: &ClassfileConstantPool,
+        classfile: &ClassFile,
     ) -> Result<Self, ConstantPoolError> {
+        let classfile_cp = classfile.constant_pool();
         let mut cp = ConstantPool::new(vec![]);
         for entry in classfile_cp.inner() {
             if let ClassfileConstantPoolEntry::Entry(ref entry) = entry {
@@ -225,6 +229,24 @@ impl ConstantPool {
                             cp.append(ConstantPoolEntry::ClassReference(class_id));
                         }
                     }
+                    ClassfileConstantPoolInfo::MethodHandleInfo(info) => {
+                        // TODO: Verify the reference kind.
+                        cp.append(ConstantPoolEntry::MethodHandleReference(
+                            info.reference_kind.clone(),
+                            info.reference_index as usize,
+                        ));
+                    }
+                    ClassfileConstantPoolInfo::MethodTypeInfo(info) => {
+                        let descriptor = descriptor::parse_method_descriptor(
+                            &classfile_cp.get_utf8_string(info.descriptor_index as usize).unwrap(),
+                        )
+                        .map_err(|err| ConstantPoolError::InvalidDescriptor {
+                            index: info.descriptor_index as usize,
+                            source: err,
+                        })?;
+                        cp.append(ConstantPoolEntry::MethodType(descriptor));
+                    }
+                    // TODO: Implement DynamicConstant and DynamicCallSite.
                     _ => {
                         log::trace!("Constant pool entry not necessary or unimplemented, ignored in RtConstantPool: {:?}", entry);
                         cp.mappings.push(0);
@@ -294,6 +316,33 @@ pub enum ConstantPoolEntry {
     },
     ClassReference(ClassId),
     ArrayReference(FieldType),
-    // MethodHandleReference(MethodHandleReference),
-    // MethodTypeReference(String),
+    /// A reference to a method handle.
+    ///
+    /// The first field is the kind of the method handle, the second field is the index of the
+    /// field/method reference in the constant pool.
+    MethodHandleReference(ReferenceKind, usize),
+    /// A reference to a method type.
+    MethodType(MethodDescriptor),
+    /// A reference to a dynamic constant.
+    DynamicConstant(DynamicConstant),
+    /// A reference to a dynamically-computed call site.
+    DynamicCCallSite(DynamicCallSite),
+}
+
+/// Representation of a symbolic reference to a dynamic constant.
+#[derive(Debug, Clone)]
+pub struct DynamicConstant {
+    pub method_handle: usize,
+    pub arguments_ref: Vec<usize>,
+    pub name: UnqualifiedName,
+    pub descriptor: FieldDescriptor,
+}
+
+/// Representation of a symbolic reference to a dynamically-computed call site.
+#[derive(Debug, Clone)]
+pub struct DynamicCallSite {
+    pub method_handle: usize,
+    pub arguments_ref: Vec<usize>,
+    pub name: UnqualifiedName,
+    pub descriptor: MethodDescriptor,
 }

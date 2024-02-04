@@ -168,7 +168,7 @@ impl ClassManager {
                             flags: resolved.classfile.access_flags().clone(),
                             constant_pool: ConstantPool::from_classfile(
                                 self,
-                                resolved.classfile.constant_pool(),
+                                &resolved.classfile,
                             )?,
                             fields: resolved
                                 .classfile

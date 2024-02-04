@@ -132,12 +132,12 @@ pub enum ConstantPoolInfo {
     NameAndTypeInfo(NameAndTypeInfo),
     /// UTF8Info entry, see [Utf8Info].
     Utf8Info(Utf8Info),
-    // MethodHandleInfo(MethodHandleInfo),
-    // MethodTypeInfo(MethodTypeInfo),
-    // DynamicInfo(DynamicInfo),
-    // InvokeDynamicInfo(InvokeDynamicInfo),
-    // ModuleInfo(ModuleInfo),
-    // PackageInfo(PackageInfo),
+    MethodHandleInfo(MethodHandleInfo),
+    MethodTypeInfo(MethodTypeInfo),
+    DynamicInfo(DynamicInfo),
+    InvokeDynamicInfo(InvokeDynamicInfo),
+    ModuleInfo(ModuleInfo),
+    PackageInfo(PackageInfo),
 }
 
 /// ClassInfo is a [ConstantPool] entry.
@@ -320,6 +320,88 @@ pub struct NameAndTypeInfo {
     descriptor_index: U2,
 }
 
+/// MethodHandleInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug, Clone)]
+#[br(big)]
+pub struct MethodHandleInfo {
+    // tag: U1,
+    /// Type of the reference.
+    pub reference_kind: ReferenceKind,
+    /// The index of the Field/Method reference in the [ConstantPool].
+    pub reference_index: U2,
+}
+
+/// ReferenceKind of a [MethodHandleInfo].
+#[derive(Debug, Clone, BinRead)]
+#[br(big, repr(u8))]
+#[repr(u8)]
+pub enum ReferenceKind {
+    GetField = 1,
+    GetStatic = 2,
+    PutField = 3,
+    PutStatic = 4,
+    InvokeVirtual = 5,
+    InvokeStatic = 6,
+    InvokeSpecial = 7,
+    NewInvokeSpecial = 8,
+    InvokeInterface = 9,
+}
+
+/// MethodTypeInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug, Clone)]
+#[br(big)]
+pub struct MethodTypeInfo {
+    // tag: U1,
+    /// Reference to a [Utf8Info] in the [ConstantPool].
+    ///
+    /// The descriptor must be a valid method descriptor.
+    pub descriptor_index: U2,
+}
+
+/// DynamicInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug, Clone)]
+#[br(big)]
+pub struct DynamicInfo {
+    // tag: U1,
+    /// Reference to a [BootstrapMethods](crate::base::attribute_info::BootstrapMethod) in the [BootstrapMethodsAttribute](crate::base::attribute_info::BootstrapMethodsAttribute) attribute.
+    pub bootstrap_method_attr_index: U2,
+    /// Reference to a [NameAndTypeInfo] in the [ConstantPool].
+    pub name_and_type_index: U2,
+}
+
+/// InvokeDynamicInfo is a [ConstantPool] entry.
+#[derive(BinRead, Debug, Clone)]
+#[br(big)]
+pub struct InvokeDynamicInfo {
+    // tag: U1,
+    /// Reference to a [BootstrapMethods](crate::base::attribute_info::BootstrapMethod) in the [BootstrapMethodsAttribute](crate::base::attribute_info::BootstrapMethodsAttribute) attribute.
+    pub bootstrap_method_attr_index: U2,
+    /// Reference to a [NameAndTypeInfo] in the [ConstantPool].
+    pub name_and_type_index: U2,
+}
+
+/// ModuleInfo is a [ConstantPool] entry.
+///
+/// Only present in Module classes.
+#[derive(BinRead, Debug, Clone)]
+#[br(big)]
+pub struct ModuleInfo {
+    // tag: U1,
+    /// Reference to a [Utf8Info] in the [ConstantPool].
+    pub name_index: U2,
+}
+
+/// PackageInfo is a [ConstantPool] entry.
+///
+/// Only present in Module classes.
+#[derive(BinRead, Debug, Clone)]
+#[br(big)]
+pub struct PackageInfo {
+    // tag: U1,
+    /// Reference to a [Utf8Info] in the [ConstantPool].
+    pub name_index: U2,
+}
+
 /// Parser for the [ConstantPool].
 #[binrw::parser(reader, endian)]
 fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
@@ -379,6 +461,36 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
                 ConstantPoolEntry::Entry(ConstantPoolInfo::NameAndTypeInfo(NameAndTypeInfo::read(
                     reader,
                 )?)),
+                false,
+            ),
+            15 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::MethodHandleInfo(MethodHandleInfo::read(
+                    reader,
+                )?)),
+                false,
+            ),
+            16 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::MethodTypeInfo(MethodTypeInfo::read(
+                    reader,
+                )?)),
+                false,
+            ),
+            17 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::DynamicInfo(DynamicInfo::read(reader)?)),
+                false,
+            ),
+            18 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::InvokeDynamicInfo(InvokeDynamicInfo::read(
+                    reader,
+                )?)),
+                false,
+            ),
+            19 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::ModuleInfo(ModuleInfo::read(reader)?)),
+                false,
+            ),
+            20 => (
+                ConstantPoolEntry::Entry(ConstantPoolInfo::PackageInfo(PackageInfo::read(reader)?)),
                 false,
             ),
             x => unimplemented!("Constant pool tag {} not implemented", x),
