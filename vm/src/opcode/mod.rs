@@ -712,6 +712,13 @@ impl Opcode {
             Opcode::NewArray(atype) => reference::newarray(thread, *atype),
             Opcode::ANewArray(index) => reference::anewarray(thread, cm, *index),
             Opcode::ArrayLength => reference::arraylength(thread),
+            // TODO: Implement AThrow, CheckCast, InstanceOf, MonitorEnter, MonitorExit
+            // TODO: Implement Wide
+            // TODO: Implement MultiANewArray
+            Opcode::IfNull(value) => extended::ifnull(thread, *value),
+            Opcode::IfNonNull(value) => extended::ifnonnull(thread, *value),
+            Opcode::GotoW(value) => control::goto_w(thread, *value),
+            Opcode::JsrW(value) => control::jsr_w(thread, *value),
             x => Err(InstructionError::UnimplementedInstruction { opcode: x.clone() }),
         }
     }
