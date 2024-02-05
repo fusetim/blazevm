@@ -74,6 +74,9 @@ pub fn ldc(
             let class_obj = cm.get_class_object(&value.clone()).unwrap();
             frame.operand_stack.push(Slot::ObjectReference(class_obj));
         }
+        ConstantPoolEntry::StringReference(value) => {
+            frame.operand_stack.push(Slot::ObjectReference(value.clone()));
+        }
         // TODO: Implement String reference and Class reference.
         _ => {
             log::error!(
@@ -147,6 +150,9 @@ pub fn ldc2_w(
         ConstantPoolEntry::ClassReference(value) => {
             let class_obj = cm.get_class_object(&value.clone()).unwrap();
             frame.operand_stack.push(Slot::ObjectReference(class_obj));
+        }
+        ConstantPoolEntry::StringReference(value) => {
+            frame.operand_stack.push(Slot::ObjectReference(value.clone()));
         }
         // TODO: Implement dynamic reference.
         _ => {
