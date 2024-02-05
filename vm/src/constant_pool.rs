@@ -1,3 +1,6 @@
+use std::char;
+
+use dumpster::sync::Gc;
 use dumpster::Collectable;
 use reader::base::constant_pool::ConstantPoolEntry as ClassfileConstantPoolEntry;
 use reader::base::constant_pool::ConstantPoolInfo as ClassfileConstantPoolInfo;
@@ -5,6 +8,7 @@ use reader::base::constant_pool::ReferenceKind;
 use reader::base::ClassFile;
 use reader::base::ConstantPool as ClassfileConstantPool;
 use reader::descriptor;
+use reader::descriptor::class;
 use reader::descriptor::ClassName;
 use reader::descriptor::FieldDescriptor;
 use reader::descriptor::FieldType;
@@ -12,9 +16,16 @@ use reader::descriptor::MethodDescriptor;
 use reader::descriptor::UnqualifiedName;
 use snafu::{ResultExt, Snafu};
 
+use crate::alloc::Array;
+use crate::alloc::CharArray;
+use crate::alloc::Object;
+use crate::alloc::ObjectRef;
 use crate::class::ClassId;
+use crate::class_loader::ClassLoadingError;
 use crate::class_manager::ClassManager;
+use crate::class_manager::LoadedClass;
 use crate::opcode::InstructionError;
+use crate::thread::Slot;
 
 /// Runtime representation of the constant pool.
 #[derive(Debug, Clone)]
@@ -29,7 +40,7 @@ pub struct ConstantPool {
 }
 
 impl ConstantPool {
-    fn new(entries: Vec<ConstantPoolEntry>) -> Self {
+    pub fn new(entries: Vec<ConstantPoolEntry>) -> Self {
         Self {
             mappings: vec![0],
             entries,
@@ -85,6 +96,7 @@ impl ConstantPool {
         cm: &mut ClassManager,
         classfile: &ClassFile,
     ) -> Result<Self, ConstantPoolError> {
+
         let classfile_cp = classfile.constant_pool();
         let mut cp = ConstantPool::new(vec![]);
         for entry in classfile_cp.inner() {
@@ -101,6 +113,32 @@ impl ConstantPool {
                     }
                     ClassfileConstantPoolInfo::DoubleInfo(info) => {
                         cp.append(ConstantPoolEntry::DoubleConstant(info.value()));
+                    }
+                    ClassfileConstantPoolInfo::StringInfo(info) => {
+                        let string = classfile_cp
+                            .get_utf8_string(info.string_index as usize)
+                            .ok_or_else(|| ConstantPoolError::InvalidUtf8StringReference {
+                                index: info.string_index as usize,
+                            })?;
+                        let char_array = CharArray::from_string(&string.to_string());
+                        let obj = match cm.get_class_by_name("java/lang/String") {
+                            Some(LoadedClass::Loaded(class)) => {
+                                let id = class.id.clone();
+                                Object::new_with_classmanager(cm, id)
+                            }
+                            Some(LoadedClass::Resolved(class)) => {
+                                Object::new_with_classfile(class.class_id, &class.classfile)
+                            }
+                            Some(LoadedClass::Loading(class)) => {
+                                Object::new_with_classfile(class.class_id, class.classfile.as_ref().expect("unreachable!"))
+                            }
+                            None => {
+                                unreachable!("java/lang/String class not loaded");
+                            }
+                        };
+                        let obj = obj.map_err(|err| ConstantPoolError::StringObjectCreationFailure { context: err.to_string() })?;
+                        obj.set_field(0, Slot::ArrayReference(Gc::new(Array::Char(char_array))));
+                        cp.append(ConstantPoolEntry::StringReference(Gc::new(obj)));
                     }
                     ClassfileConstantPoolInfo::FieldRefInfo(info) => {
                         let class_name = classfile_cp
@@ -246,6 +284,7 @@ impl ConstantPool {
                         })?;
                         cp.append(ConstantPoolEntry::MethodType(descriptor));
                     }
+
                     // TODO: Implement DynamicConstant and DynamicCallSite.
                     _ => {
                         log::trace!("Constant pool entry not necessary or unimplemented, ignored in RtConstantPool: {:?}", entry);
@@ -281,6 +320,9 @@ pub enum ConstantPoolError {
     #[snafu(display("Invalid classname reference, entry index: {}", index))]
     InvalidClassNameReference { index: usize },
 
+    #[snafu(display("String object creation failed: {}", context))]
+    StringObjectCreationFailure { context: String },
+
     #[snafu(display("Loading failure of a class/interface reference, name: {}, context: {}", class_name, context.as_ref().unwrap_or(&"<unknown>".to_string())))]
     ClassLoadingFailure {
         class_name: String,
@@ -295,8 +337,7 @@ pub enum ConstantPoolEntry {
     FloatConstant(f32),
     LongConstant(i64),
     DoubleConstant(f64),
-    // TODO: String constant should be a reference to a java String object.
-    // StringConstant(String),
+    StringReference(ObjectRef),
     // TODO: Implement the rest of the constant pool entries, in particular
     // the symbolic references (class, field, method, interface method, ...).
     FieldReference {

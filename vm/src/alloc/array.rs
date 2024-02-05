@@ -153,6 +153,16 @@ impl ArrayRefArray {
     }
 }
 
+impl CharArray {
+    /// Create a Char Array from a rust string
+    pub fn from_string(string: &str) -> Self {
+        let data = string.encode_utf16().collect();
+        Self {
+            data: RwLock::new(data),
+        }
+    }
+}
+
 mod macros {
     #[macro_export]
     macro_rules! item_array {

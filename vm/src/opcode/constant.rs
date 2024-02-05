@@ -54,6 +54,7 @@ pub fn ldc(
     cm: &mut ClassManager,
     value: u8,
 ) -> Result<InstructionSuccess, InstructionError> {
+    let pc = thread.pc;
     let frame = thread.current_frame_mut().unwrap();
     let class = frame.class;
     let LoadedClass::Loaded(class) = cm.get_class_by_id(class).unwrap() else {
@@ -69,8 +70,13 @@ pub fn ldc(
         ConstantPoolEntry::FloatConstant(value) => {
             frame.operand_stack.push(Slot::Float(*value));
         }
+        ConstantPoolEntry::ClassReference(value) => {
+            let class_obj = cm.get_class_object(&value.clone()).unwrap();
+            frame.operand_stack.push(Slot::ObjectReference(class_obj));
+        }
         // TODO: Implement String reference and Class reference.
         _ => {
+            log::error!("ldc - invalid constant pool - running class {}, method {}, pc {}", class.name, frame.method, pc);
             return Err(InstructionError::InvalidState {
                 context: format!("Invalid constant pool entry at {}: {:?}", value, constant),
             });
@@ -132,6 +138,10 @@ pub fn ldc2_w(
         }
         ConstantPoolEntry::DoubleConstant(value) => {
             frame.operand_stack.push(Slot::Double(*value));
+        }
+        ConstantPoolEntry::ClassReference(value) => {
+            let class_obj = cm.get_class_object(&value.clone()).unwrap();
+            frame.operand_stack.push(Slot::ObjectReference(class_obj));
         }
         // TODO: Implement dynamic reference.
         _ => {

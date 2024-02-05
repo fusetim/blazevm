@@ -1,5 +1,6 @@
 use std::{cell::OnceCell, collections::HashMap};
 
+use dumpster::sync::Gc;
 use flagset::FlagSet;
 use reader::{
     base::{
@@ -11,6 +12,7 @@ use reader::{
 };
 
 use crate::{
+    alloc::{Object, ObjectRef},
     class::{self, Class, ClassId, Method},
     class_loader::{ClassLoader, ClassLoadingError, DerivingError},
     constant_pool::{ConstantPool, ConstantPoolError},
@@ -43,12 +45,18 @@ pub struct ClassManager {
 impl ClassManager {
     /// Create a new class manager.
     pub fn new(class_loader: ClassLoader) -> Self {
-        Self {
+        let mut s = Self {
             class_loader,
             classes_by_id: HashMap::new(),
             name_map: HashMap::new(),
             next_class_id: ClassId(0),
-        }
+        };
+        // Preload java/lang/Object and java/lang/String.
+        s.get_or_resolve_class("java/lang/String")
+            .expect("Failed to preload java/lang/String");
+        s.get_or_resolve_class("java/lang/Object")
+            .expect("Failed to preload java/lang/Object");
+        s
     }
 
     /// Execute the class initializer
@@ -93,7 +101,7 @@ impl ClassManager {
             .get(name)
             .and_then(|id| self.classes_by_id.get(id))
     }
-    
+
     /// Get the class ID of a class by its name.
     pub fn id_of_class(&self, name: &str) -> Option<ClassId> {
         self.name_map.get(name).cloned()
@@ -152,8 +160,13 @@ impl ClassManager {
                         }
                         stack.push(class_name.clone());
                         for (dependency, required) in unresolved {
-                            let classfile = self.class_loader.load_classfile(&dependency)?;
-                            self.resolve_class(classfile)?;
+                            if dependency.starts_with("[") {
+                                // This is an array class
+                                let _ = self.create_array_class(&dependency)?;
+                            } else {
+                                let classfile = self.class_loader.load_classfile(&dependency)?;
+                                self.resolve_class(classfile)?;
+                            }
 
                             // If the dependency is required, we must load it before the current class.
                             if *required {
@@ -169,10 +182,7 @@ impl ClassManager {
                             super_class: resolved.super_class,
                             interfaces: resolved.interfaces,
                             flags: resolved.classfile.access_flags().clone(),
-                            constant_pool: ConstantPool::from_classfile(
-                                self,
-                                &resolved.classfile,
-                            )?,
+                            constant_pool: ConstantPool::from_classfile(self, &resolved.classfile)?,
                             fields: resolved
                                 .classfile
                                 .fields()
@@ -197,6 +207,7 @@ impl ClassManager {
                                     )
                                 })
                                 .collect::<Result<Vec<_>, _>>()?,
+                            classfile: Some(resolved.classfile.clone()),
                         });
 
                         // Update the class manager with the loading class.
@@ -211,10 +222,18 @@ impl ClassManager {
                                 Some(class) => match class {
                                     LoadedClass::Loaded(class) => Some(class.clone()),
                                     LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
-                                        return Err(DerivingError::SuperClassNotLoaded { class_name: superclass_name.clone() }.into())
+                                        return Err(DerivingError::SuperClassNotLoaded {
+                                            class_name: superclass_name.clone(),
+                                        }
+                                        .into())
                                     }
                                 },
-                                None => return Err(DerivingError::SuperClassNotLoaded { class_name: superclass_name.clone() }.into()),
+                                None => {
+                                    return Err(DerivingError::SuperClassNotLoaded {
+                                        class_name: superclass_name.clone(),
+                                    }
+                                    .into())
+                                }
                             }
                         } else {
                             None
@@ -226,10 +245,18 @@ impl ClassManager {
                                 Some(class) => match class {
                                     LoadedClass::Loaded(class) => interfaces.push(class.clone()),
                                     LoadedClass::Loading(_) | LoadedClass::Resolved(_) => {
-                                        return Err(DerivingError::SuperInterfaceNotLoaded { interface_name: interface_name.clone() }.into())
+                                        return Err(DerivingError::SuperInterfaceNotLoaded {
+                                            interface_name: interface_name.clone(),
+                                        }
+                                        .into())
                                     }
                                 },
-                                None => return Err(DerivingError::SuperInterfaceNotLoaded { interface_name: interface_name.clone() }.into()),
+                                None => {
+                                    return Err(DerivingError::SuperInterfaceNotLoaded {
+                                        interface_name: interface_name.clone(),
+                                    }
+                                    .into())
+                                }
                             }
                         }
 
@@ -243,6 +270,7 @@ impl ClassManager {
                             fields: loading.fields.clone(),
                             methods: loading.methods.clone(),
                             initialized: OnceCell::new(),
+                            class_object: OnceCell::new(),
                         };
                         class.initialized.set(false).unwrap();
 
@@ -264,8 +292,14 @@ impl ClassManager {
                     }
                 }
             } else {
-                let classfile = self.class_loader.load_classfile(&class_name)?;
-                self.resolve_class(classfile)?;
+                if class_name.starts_with("[") {
+                    // This is an array class
+                    let _ = self.create_array_class(&class_name)?;
+                } else {
+                    // Standard class, just load it from its classfile
+                    let classfile = self.class_loader.load_classfile(&class_name)?;
+                    self.resolve_class(classfile)?;
+                }
                 stack.push(class_name);
             }
         }
@@ -323,23 +357,16 @@ impl ClassManager {
                 if dep_class_name.len() == 0 {
                     continue;
                 }
-                if dep_class_name.starts_with("[") {
-                    // This is an array type, FUCK
-                    if let Ok(descriptor) = descriptor::parse_field_descriptor(&dep_class_name) {
-                        if let Some(rcn) = descriptor.get_referenced_class() {
-                            dep_class_name = rcn.as_binary_name();
-                        } else {
-                            continue;
-                        }
-                    } else {
-                        continue;
-                    }
-                }
                 if class_name == dep_class_name {
                     continue;
                 }
                 if self.name_map.contains_key(&dep_class_name) {
                     continue;
+                }
+                if dep_class_name.starts_with("[") {
+                    // This is an array type, FUCK
+                    // For simplicity, let's preload them
+                    self.create_array_class(&dep_class_name)?;
                 }
                 if dependencies.iter().any(|(n, _)| n == &dep_class_name) {
                     continue;
@@ -386,7 +413,14 @@ impl ClassManager {
     }
 
     /// Resolve method reference
-    pub fn resolve_method(&mut self, this_class: &ClassId, impl_class: &ClassId, name: &str, descriptor: &MethodDescriptor, special: bool) -> Result<Option<(ClassId, usize)>, ClassLoadingError> {
+    pub fn resolve_method(
+        &mut self,
+        this_class: &ClassId,
+        impl_class: &ClassId,
+        name: &str,
+        descriptor: &MethodDescriptor,
+        special: bool,
+    ) -> Result<Option<(ClassId, usize)>, ClassLoadingError> {
         // `invokespecial` particular case resolution
         if special && name != "<init>" && self.is_superclass_of(impl_class, this_class) {
             let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(impl_class) else {
@@ -428,6 +462,54 @@ impl ClassManager {
         Ok(None)
     }
 
+    pub fn create_array_class(&mut self, array_name: &str) -> Result<ClassId, ClassLoadingError> {
+        log::debug!("Creating array class for {}", array_name);
+
+        let class = LoadingClass {
+            class_id: self.acquire_class_id(),
+            class_name: array_name.to_string(),
+            super_class: Some("java/lang/Object".into()),
+            interfaces: vec!["java/lang/Cloneable".into(), "java/io/Serializable".into()],
+            flags: ClassAccessFlags::Public | ClassAccessFlags::Final,
+            constant_pool: ConstantPool::new(vec![]),
+            fields: vec![],
+            // TODO: Add the clone method
+            methods: vec![],
+            classfile: None,
+        };
+
+        let loaded_class = LoadedClass::Loading(class);
+        self.classes_by_id
+            .insert(loaded_class.id(), loaded_class.clone());
+        self.name_map
+            .insert(array_name.to_string(), loaded_class.id());
+        Ok(loaded_class.id())
+    }
+
+    /// Get the Class<T> object for a given class.
+    pub fn get_class_object(&mut self, class_id: &ClassId) -> Result<ObjectRef, ClassLoadingError> {
+        let _ = self.request_class_load(class_id.clone())?;
+        let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(class_id) else {
+            return Err(ClassLoadingError::NotFound);
+        };
+
+        if let Some(class_object) = class.class_object.get() {
+            return Ok(class_object.clone());
+        }
+
+        let class_ty = self.get_or_resolve_class("java/lang/Class")?;
+        let class_ty = class_ty.id();
+
+        let obj = Gc::new(Object::new_with_classmanager(self, class_ty)?);
+
+        // TODO: Maybe init the class object, but for now, it should be OK as <init> currently only put default zero values in the fields.
+
+        let Some(LoadedClass::Loaded(class)) = self.classes_by_id.get(class_id) else {
+            return Err(ClassLoadingError::NotFound);
+        };
+        class.class_object.set(obj.clone()).unwrap();
+        Ok(obj)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -465,6 +547,7 @@ pub struct LoadingClass {
     pub constant_pool: ConstantPool,
     pub fields: Vec<class::Field>,
     pub methods: Vec<class::Method>,
+    pub classfile: Option<ClassFile>,
 }
 
 #[derive(Debug, Clone)]

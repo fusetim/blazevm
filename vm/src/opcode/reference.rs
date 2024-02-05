@@ -423,7 +423,7 @@ pub fn invokespecial(
             });
         };
 
-        (method_name, method_descriptor, implementor)
+        dbg!((method_name, method_descriptor, implementor))
     };
 
     cm.request_class_load(implementor.clone()).map_err(|err| {

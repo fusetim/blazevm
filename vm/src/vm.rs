@@ -54,6 +54,9 @@ impl Vm {
 
     pub fn execute_thread(&mut self, thread_id: usize) -> Result<(), ExecutionError> {
         let thread = self.thread_manager.get_thread_mut(thread_id).unwrap();
-        thread.execute(&mut self.class_manager)
+        let x = thread.execute(&mut self.class_manager);
+        log::debug!("Classes loaded: {}", self.class_manager.classes_by_id.len());
+        log::debug!("Classes by names: {:?}", &self.class_manager.name_map);
+        x
     }
 }

@@ -1,5 +1,5 @@
-use crate::slot::Slot;
-use std::{cell::OnceCell, io::Cursor};
+use crate::{alloc::{Object, ObjectRef}, slot::Slot};
+use std::{cell::OnceCell, io::Cursor, sync::Once};
 
 use crate::{
     class_loader::ClassLoadingError,
@@ -9,8 +9,7 @@ use crate::{
 use dumpster::Collectable;
 use flagset::FlagSet;
 use reader::{
-    base::classfile::{ClassAccessFlags, FieldAccessFlags, MethodAccessFlags},
-    BinRead,
+    base::classfile::{ClassAccessFlags, FieldAccessFlags, MethodAccessFlags}, descriptor::class, BinRead
 };
 use reader::{
     base::{
@@ -48,6 +47,7 @@ pub struct Class {
     /// Basically ensure the `<clinit>` method has been executed, or not.
     /// This is particularly useful for ensuring final static fields are set only once.
     pub initialized: OnceCell<bool>,
+    pub class_object: OnceCell<ObjectRef>,
 }
 
 impl Class {
@@ -86,6 +86,10 @@ impl Class {
 
     pub fn index_of_field(&self, name: &str) -> Option<usize> {
         self.fields.iter().position(|field| field.name == name)
+    }
+
+    pub fn is_array_class(&self) -> bool {
+        self.name.starts_with('[')
     }
 }
 
@@ -167,6 +171,7 @@ impl Field {
     pub fn is_final(&self) -> bool {
         self.flags.contains(FieldAccessFlags::Final)
     }
+
 }
 
 #[derive(Debug, Clone)]

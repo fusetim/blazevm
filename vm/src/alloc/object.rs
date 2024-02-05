@@ -1,12 +1,10 @@
 use std::sync::RwLock;
 
 use dumpster::{sync::Gc, Collectable};
+use reader::{base::{classfile::FieldAccessFlags, ClassFile}, descriptor};
 
 use crate::{
-    class::ClassId,
-    class_loader::ClassLoadingError,
-    class_manager::{ClassManager, LoadedClass},
-    slot::Slot,
+    class::ClassId, class_loader::ClassLoadingError, class_manager::{ClassManager, LoadedClass}, constant_pool::ConstantPoolError, slot::Slot
 };
 
 pub type ObjectRef = Gc<Object>;
@@ -53,6 +51,30 @@ impl Object {
                 fields.push(Slot::Tombstone);
             } else {
                 fields.push(Slot::default_for(f.descriptor.field_type()));
+            }
+        }
+
+        Ok(Self::new(class_id, fields))
+    }
+
+    pub(crate) fn new_with_classfile(
+        class_id: ClassId,
+        classfile: &ClassFile,
+    ) -> Result<Self, ClassLoadingError> {
+        let mut fields = vec![];
+        for f in classfile.fields().iter() {
+            if f.access_flags.contains(FieldAccessFlags::Static) {
+                fields.push(Slot::Tombstone);
+            } else {
+                let Some(descriptor) = classfile.constant_pool().get_utf8_string(f.descriptor_index as usize) else {
+                    log::error!("alloc::object::new_with_classfile - Failed to get field descriptor from constant pool");
+                    return Err(ClassLoadingError::ConstantPoolLoadingError { source: ConstantPoolError::InvalidUtf8StringReference { index: f.descriptor_index as usize } } );
+                };
+                let desc = descriptor::parse_field_descriptor(&descriptor.to_string()).map_err(|err| {
+                    log::error!("alloc::object::new_with_classfile - Failed to parse field descriptor: {}", &err);
+                    ClassLoadingError::BadDescriptor { source: err }
+                })?;
+                fields.push(Slot::default_for(desc.field_type()));
             }
         }
 
