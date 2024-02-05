@@ -9,7 +9,11 @@ use crate::constant_pool::ConstantPoolEntry;
 use crate::thread::{Frame, Slot, Thread};
 
 /// Internal helper to get a field from a ClassId and a constant pool index.
-fn intern_get_field(cm: &mut ClassManager, class: ClassId, cp_index: u16) -> Result<(ClassId, &Field, usize), InstructionError> {
+fn intern_get_field(
+    cm: &mut ClassManager,
+    class: ClassId,
+    cp_index: u16,
+) -> Result<(ClassId, &Field, usize), InstructionError> {
     let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(class) else {
         return Err(InstructionError::InvalidState {
             context: format!("Class not found: ClassId({})", class.0),
@@ -19,7 +23,10 @@ fn intern_get_field(cm: &mut ClassManager, class: ClassId, cp_index: u16) -> Res
         field_name,
         field_descriptor,
         implementor,
-    }) = class.constant_pool.get_field_ref(cp_index as usize).cloned()
+    }) = class
+        .constant_pool
+        .get_field_ref(cp_index as usize)
+        .cloned()
     else {
         return Err(InstructionError::InvalidState {
             context: format!(
@@ -29,7 +36,14 @@ fn intern_get_field(cm: &mut ClassManager, class: ClassId, cp_index: u16) -> Res
         });
     };
     cm.request_class_load(implementor.clone()).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        }
     })?;
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(implementor.clone()) else {
         return Err(InstructionError::InvalidState {
@@ -118,7 +132,14 @@ pub fn putstatic(
         )
     };
     cm.request_class_load(implementor.clone()).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        }
     })?;
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_mut_class_by_id(implementor.clone()) else {
         return Err(InstructionError::InvalidState {
@@ -189,7 +210,7 @@ pub fn getfield(
             });
         }
     };
-    
+
     let (implementor, field, field_id) = intern_get_field(cm, frame.class, index)?;
 
     // Check if the type is coherent
@@ -197,7 +218,8 @@ pub fn getfield(
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Field implementor class does not match object class: ClassId({}) != ClassId({})",
-                implementor.0, objref.class_id().0
+                implementor.0,
+                objref.class_id().0
             ),
         });
     }
@@ -212,16 +234,16 @@ pub fn getfield(
             ),
         });
     }
-    
+
     // Retrieve the field value
-    let value = objref.get_field(field_id).ok_or_else(|| {
-        InstructionError::InvalidState {
+    let value = objref
+        .get_field(field_id)
+        .ok_or_else(|| InstructionError::InvalidState {
             context: format!(
                 "Field not found: ClassId({}), field name {}, field descriptor {:?}",
                 implementor.0, field.name, field.descriptor
             ),
-        }
-    })?;
+        })?;
 
     frame.operand_stack.push(value);
 
@@ -236,11 +258,12 @@ pub fn putfield(
     index: u16,
 ) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
-    let value = frame.operand_stack.pop().ok_or_else(|| {
-        InstructionError::InvalidState {
+    let value = frame
+        .operand_stack
+        .pop()
+        .ok_or_else(|| InstructionError::InvalidState {
             context: "Operand stack is empty".into(),
-        }
-    })?;
+        })?;
     let objref = match frame.operand_stack.pop() {
         Some(Slot::ObjectReference(objref)) => objref,
         Some(Slot::UndefinedReference) => {
@@ -254,7 +277,7 @@ pub fn putfield(
             });
         }
     };
-    
+
     // Check if we are currently running the initializer of this class
     let is_initializer = {
         let Some(LoadedClass::Loaded(cur_class)) = cm.get_class_by_id(frame.class) else {
@@ -280,7 +303,8 @@ pub fn putfield(
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Field implementor class does not match object class: ClassId({}) != ClassId({})",
-                implementor.0, objref.class_id().0
+                implementor.0,
+                objref.class_id().0
             ),
         });
     }
@@ -305,12 +329,11 @@ pub fn putfield(
             ),
         });
     }
-    
+
     // TODO: Ensure the field type is coherent
 
     // Set the field value
     objref.set_field(field_id, value);
-
 
     Ok(InstructionSuccess::Next(3))
 }
@@ -350,7 +373,14 @@ pub fn invokestatic(
     };
 
     cm.request_class_load(implementor.clone()).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        }
     })?;
     let Some(LoadedClass::Loaded(impl_class)) = cm.get_class_by_id(implementor) else {
         return Err(InstructionError::InvalidState {
@@ -423,14 +453,36 @@ pub fn invokespecial(
             });
         };
 
-        dbg!((method_name, method_descriptor, implementor))
+        (method_name, method_descriptor, implementor)
     };
 
     cm.request_class_load(implementor.clone()).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        }
     })?;
-    let Some((real_impl, method_id)) = cm.resolve_method(&this_class, &implementor, &method_name, &method_descriptor, true)
-        .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
+    let Some((real_impl, method_id)) = cm
+        .resolve_method(
+            &this_class,
+            &implementor,
+            &method_name,
+            &method_descriptor,
+            true,
+        )
+        .map_err(|err| InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        })?
+    else {
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Method not found: ClassId({}), method name {}, method descriptor {:?}",
@@ -441,11 +493,12 @@ pub fn invokespecial(
 
     let mut args = Vec::new();
     for _ in 0..method_descriptor.args_count() {
-        let arg = frame.operand_stack.pop().ok_or_else(|| {
-            InstructionError::InvalidState {
+        let arg = frame
+            .operand_stack
+            .pop()
+            .ok_or_else(|| InstructionError::InvalidState {
                 context: format!("Operand stack is empty"),
-            }
-        })?;
+            })?;
         args.push(arg);
     }
     let objref = match frame.operand_stack.pop() {
@@ -505,10 +558,32 @@ pub fn invokevirtual(
     };
 
     cm.request_class_load(implementor.clone()).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        }
     })?;
-    let Some((real_impl, method_id)) = cm.resolve_method(&this_class, &implementor, &method_name, &method_descriptor, false)
-        .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
+    let Some((real_impl, method_id)) = cm
+        .resolve_method(
+            &this_class,
+            &implementor,
+            &method_name,
+            &method_descriptor,
+            false,
+        )
+        .map_err(|err| InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        })?
+    else {
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Method not found: ClassId({}), method name {}, method descriptor {:?}",
@@ -519,11 +594,12 @@ pub fn invokevirtual(
 
     let mut args = Vec::new();
     for _ in 0..method_descriptor.args_count() {
-        let arg = frame.operand_stack.pop().ok_or_else(|| {
-            InstructionError::InvalidState {
+        let arg = frame
+            .operand_stack
+            .pop()
+            .ok_or_else(|| InstructionError::InvalidState {
                 context: format!("Operand stack is empty"),
-            }
-        })?;
+            })?;
         args.push(arg);
     }
     let objref = match frame.operand_stack.pop() {
@@ -583,10 +659,32 @@ pub fn invokeinterface(
     };
 
     cm.request_class_load(implementor.clone()).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        }
     })?;
-    let Some((real_impl, method_id)) = cm.resolve_method(&this_class, &implementor, &method_name, &method_descriptor, false)
-        .map_err(|err| InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(implementor.clone()).unwrap().name().into(), source: Box::new(err) })? else {
+    let Some((real_impl, method_id)) = cm
+        .resolve_method(
+            &this_class,
+            &implementor,
+            &method_name,
+            &method_descriptor,
+            false,
+        )
+        .map_err(|err| InstructionError::ClassLoadingError {
+            class_name: cm
+                .get_class_by_id(implementor.clone())
+                .unwrap()
+                .name()
+                .into(),
+            source: Box::new(err),
+        })?
+    else {
         return Err(InstructionError::InvalidState {
             context: format!(
                 "Method not found: ClassId({}), method name {}, method descriptor {:?}",
@@ -597,11 +695,12 @@ pub fn invokeinterface(
 
     let mut args = Vec::new();
     for _ in 0..method_descriptor.args_count() {
-        let arg = frame.operand_stack.pop().ok_or_else(|| {
-            InstructionError::InvalidState {
+        let arg = frame
+            .operand_stack
+            .pop()
+            .ok_or_else(|| InstructionError::InvalidState {
                 context: format!("Operand stack is empty"),
-            }
-        })?;
+            })?;
         args.push(arg);
     }
     let objref = match frame.operand_stack.pop() {
@@ -682,7 +781,12 @@ fn invoke(
         let mut arg_pos = 0;
         for arg in args.into_iter() {
             match arg {
-                Slot::Int(_) | Slot::Float(_) | Slot::UndefinedReference | Slot::ArrayReference(_) | Slot::ObjectReference(_) | Slot::ReturnAddress(_) => {
+                Slot::Int(_)
+                | Slot::Float(_)
+                | Slot::UndefinedReference
+                | Slot::ArrayReference(_)
+                | Slot::ObjectReference(_)
+                | Slot::ReturnAddress(_) => {
                     frame.local_variables[arg_pos] = arg;
                     arg_pos += 1;
                 }
@@ -701,32 +805,43 @@ fn invoke(
 }
 
 /// `new` creates a new object of a given class and pushes a reference to it onto the operand stack.
-pub fn new(thread: &mut Thread, cm: &mut ClassManager, index: u16) -> Result<InstructionSuccess, InstructionError> {
+pub fn new(
+    thread: &mut Thread,
+    cm: &mut ClassManager,
+    index: u16,
+) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let Some(LoadedClass::Loaded(class)) = cm.get_class_by_id(frame.class) else {
         return Err(InstructionError::InvalidState {
             context: format!("Class not found: ClassId({})", frame.class.0),
         });
     };
-    let Some(ConstantPoolEntry::ClassReference(class_id)) = class.constant_pool.get_class_ref(index as usize).cloned() else {
+    let Some(ConstantPoolEntry::ClassReference(class_id)) =
+        class.constant_pool.get_class_ref(index as usize).cloned()
+    else {
         return Err(InstructionError::InvalidState {
-            context: format!("ClassRef not found: ClassId({}), constant pool index {}", class.id.0, index),
+            context: format!(
+                "ClassRef not found: ClassId({}), constant pool index {}",
+                class.id.0, index
+            ),
         });
     };
 
     let obj = Object::new_with_classmanager(cm, class_id).map_err(|err| {
-        InstructionError::ClassLoadingError { class_name: cm.get_class_by_id(class_id).unwrap().name().into(), source: Box::new(err) }
+        InstructionError::ClassLoadingError {
+            class_name: cm.get_class_by_id(class_id).unwrap().name().into(),
+            source: Box::new(err),
+        }
     })?;
 
-    frame.operand_stack.push(Slot::ObjectReference(Gc::new(obj)));
+    frame
+        .operand_stack
+        .push(Slot::ObjectReference(Gc::new(obj)));
     Ok(InstructionSuccess::Next(3))
 }
 
 /// `newarray` creates a new array of a given primitive type and size.
-pub fn newarray(
-    thread: &mut Thread,
-    atype: u8,
-) -> Result<InstructionSuccess, InstructionError> {
+pub fn newarray(thread: &mut Thread, atype: u8) -> Result<InstructionSuccess, InstructionError> {
     let frame = thread.current_frame_mut().unwrap();
     let count = frame.operand_stack.pop().unwrap();
     let count = match count {

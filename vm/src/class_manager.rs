@@ -160,12 +160,15 @@ impl ClassManager {
                         }
                         stack.push(class_name.clone());
                         for (dependency, required) in unresolved {
-                            if dependency.starts_with("[") {
-                                // This is an array class
-                                let _ = self.create_array_class(&dependency)?;
-                            } else {
-                                let classfile = self.class_loader.load_classfile(&dependency)?;
-                                self.resolve_class(classfile)?;
+                            if self.id_of_class(&dependency).is_none() {
+                                if dependency.starts_with("[") {
+                                    // This is an array class
+                                    let _ = self.create_array_class(&dependency)?;
+                                } else {
+                                    let classfile =
+                                        self.class_loader.load_classfile(&dependency)?;
+                                    self.resolve_class(classfile)?;
+                                }
                             }
 
                             // If the dependency is required, we must load it before the current class.

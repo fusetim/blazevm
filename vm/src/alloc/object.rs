@@ -1,10 +1,17 @@
 use std::sync::RwLock;
 
 use dumpster::{sync::Gc, Collectable};
-use reader::{base::{classfile::FieldAccessFlags, ClassFile}, descriptor};
+use reader::{
+    base::{classfile::FieldAccessFlags, ClassFile},
+    descriptor,
+};
 
 use crate::{
-    class::ClassId, class_loader::ClassLoadingError, class_manager::{ClassManager, LoadedClass}, constant_pool::ConstantPoolError, slot::Slot
+    class::ClassId,
+    class_loader::ClassLoadingError,
+    class_manager::{ClassManager, LoadedClass},
+    constant_pool::ConstantPoolError,
+    slot::Slot,
 };
 
 pub type ObjectRef = Gc<Object>;
@@ -66,9 +73,16 @@ impl Object {
             if f.access_flags.contains(FieldAccessFlags::Static) {
                 fields.push(Slot::Tombstone);
             } else {
-                let Some(descriptor) = classfile.constant_pool().get_utf8_string(f.descriptor_index as usize) else {
+                let Some(descriptor) = classfile
+                    .constant_pool()
+                    .get_utf8_string(f.descriptor_index as usize)
+                else {
                     log::error!("alloc::object::new_with_classfile - Failed to get field descriptor from constant pool");
-                    return Err(ClassLoadingError::ConstantPoolLoadingError { source: ConstantPoolError::InvalidUtf8StringReference { index: f.descriptor_index as usize } } );
+                    return Err(ClassLoadingError::ConstantPoolLoadingError {
+                        source: ConstantPoolError::InvalidUtf8StringReference {
+                            index: f.descriptor_index as usize,
+                        },
+                    });
                 };
                 let desc = descriptor::parse_field_descriptor(&descriptor.to_string()).map_err(|err| {
                     log::error!("alloc::object::new_with_classfile - Failed to parse field descriptor: {}", &err);

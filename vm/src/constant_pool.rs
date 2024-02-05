@@ -96,7 +96,6 @@ impl ConstantPool {
         cm: &mut ClassManager,
         classfile: &ClassFile,
     ) -> Result<Self, ConstantPoolError> {
-
         let classfile_cp = classfile.constant_pool();
         let mut cp = ConstantPool::new(vec![]);
         for entry in classfile_cp.inner() {
@@ -129,14 +128,18 @@ impl ConstantPool {
                             Some(LoadedClass::Resolved(class)) => {
                                 Object::new_with_classfile(class.class_id, &class.classfile)
                             }
-                            Some(LoadedClass::Loading(class)) => {
-                                Object::new_with_classfile(class.class_id, class.classfile.as_ref().expect("unreachable!"))
-                            }
+                            Some(LoadedClass::Loading(class)) => Object::new_with_classfile(
+                                class.class_id,
+                                class.classfile.as_ref().expect("unreachable!"),
+                            ),
                             None => {
                                 unreachable!("java/lang/String class not loaded");
                             }
                         };
-                        let obj = obj.map_err(|err| ConstantPoolError::StringObjectCreationFailure { context: err.to_string() })?;
+                        let obj =
+                            obj.map_err(|err| ConstantPoolError::StringObjectCreationFailure {
+                                context: err.to_string(),
+                            })?;
                         obj.set_field(0, Slot::ArrayReference(Gc::new(Array::Char(char_array))));
                         cp.append(ConstantPoolEntry::StringReference(Gc::new(obj)));
                     }
@@ -276,11 +279,15 @@ impl ConstantPool {
                     }
                     ClassfileConstantPoolInfo::MethodTypeInfo(info) => {
                         let descriptor = descriptor::parse_method_descriptor(
-                            &classfile_cp.get_utf8_string(info.descriptor_index as usize).unwrap(),
+                            &classfile_cp
+                                .get_utf8_string(info.descriptor_index as usize)
+                                .unwrap(),
                         )
-                        .map_err(|err| ConstantPoolError::InvalidDescriptor {
-                            index: info.descriptor_index as usize,
-                            source: err,
+                        .map_err(|err| {
+                            ConstantPoolError::InvalidDescriptor {
+                                index: info.descriptor_index as usize,
+                                source: err,
+                            }
                         })?;
                         cp.append(ConstantPoolEntry::MethodType(descriptor));
                     }

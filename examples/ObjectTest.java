@@ -10,6 +10,8 @@ public class ObjectTest {
         int b = ObjectTest.INSTANCE.get();
         ObjectTest.INSTANCE.add(substract(20, 10));
         int c = ObjectTest.INSTANCE.get();
+        char[] chars = new char[] { 'a', 'b', 'c' };
+        String str = new String(chars);
     }
 
     public int get() {

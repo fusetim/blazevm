@@ -472,8 +472,11 @@ pub fn read_instruction(mut reader: impl Read + Seek) -> Result<(usize, Opcode),
             // can be ignored.
             let mut buf = [0u8; 4];
             reader.read_exact(&mut buf)?;
-            Ok((5, Opcode::InvokeInterface(u16::from_be_bytes([buf[0], buf[1]]))))
-        },
+            Ok((
+                5,
+                Opcode::InvokeInterface(u16::from_be_bytes([buf[0], buf[1]])),
+            ))
+        }
         0xba => opcode_with_operand2!(reader, InvokeDynamic),
         0xbb => opcode_with_operand2!(reader, New),
         0xbc => opcode_with_operand1!(reader, NewArray),

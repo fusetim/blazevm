@@ -76,7 +76,12 @@ pub fn ldc(
         }
         // TODO: Implement String reference and Class reference.
         _ => {
-            log::error!("ldc - invalid constant pool - running class {}, method {}, pc {}", class.name, frame.method, pc);
+            log::error!(
+                "ldc - invalid constant pool - running class {}, method {}, pc {}",
+                class.name,
+                frame.method,
+                pc
+            );
             return Err(InstructionError::InvalidState {
                 context: format!("Invalid constant pool entry at {}: {:?}", value, constant),
             });

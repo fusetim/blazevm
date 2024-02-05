@@ -1,4 +1,7 @@
-use crate::{alloc::{Object, ObjectRef}, slot::Slot};
+use crate::{
+    alloc::{Object, ObjectRef},
+    slot::Slot,
+};
 use std::{cell::OnceCell, io::Cursor, sync::Once};
 
 use crate::{
@@ -9,7 +12,9 @@ use crate::{
 use dumpster::Collectable;
 use flagset::FlagSet;
 use reader::{
-    base::classfile::{ClassAccessFlags, FieldAccessFlags, MethodAccessFlags}, descriptor::class, BinRead
+    base::classfile::{ClassAccessFlags, FieldAccessFlags, MethodAccessFlags},
+    descriptor::class,
+    BinRead,
 };
 use reader::{
     base::{
@@ -171,7 +176,6 @@ impl Field {
     pub fn is_final(&self) -> bool {
         self.flags.contains(FieldAccessFlags::Final)
     }
-
 }
 
 #[derive(Debug, Clone)]

@@ -464,9 +464,9 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
                 false,
             ),
             15 => (
-                ConstantPoolEntry::Entry(ConstantPoolInfo::MethodHandleInfo(MethodHandleInfo::read(
-                    reader,
-                )?)),
+                ConstantPoolEntry::Entry(ConstantPoolInfo::MethodHandleInfo(
+                    MethodHandleInfo::read(reader)?,
+                )),
                 false,
             ),
             16 => (
@@ -480,9 +480,9 @@ fn parse_constant_pool(count: U2) -> BinResult<Vec<ConstantPoolEntry>> {
                 false,
             ),
             18 => (
-                ConstantPoolEntry::Entry(ConstantPoolInfo::InvokeDynamicInfo(InvokeDynamicInfo::read(
-                    reader,
-                )?)),
+                ConstantPoolEntry::Entry(ConstantPoolInfo::InvokeDynamicInfo(
+                    InvokeDynamicInfo::read(reader)?,
+                )),
                 false,
             ),
             19 => (
